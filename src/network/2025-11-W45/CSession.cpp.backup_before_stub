@@ -1,0 +1,357 @@
+#include <network/CSession.h>
+#include <common/error_codes.h>
+#include <common/constants_improved.h>
+#include <common/ida_types.h>
+#include <string.h>  // for memcpy, memmove
+#include <errno.h>   // for errno, __errno_location
+#include <arpa/inet.h>  // for inet_ntoa, inet_addr, ntohs
+#include <unistd.h>  // for accept
+
+// Forward declarations for external dependencies
+template<int BufSize, int MaxConns> class CNetwork;
+
+// CSession Implementation (13 functions)
+
+// GetChannelNo (line 1359630)
+int __cdecl exchange_server::CSession_GetChannelNo(exchange_server::CSession *self)
+{
+  return *((_DWORD *)self + 136297);
+}
+
+// GetSocket (line 1359658)
+int __cdecl exchange_server::CSession_GetSocket(exchange_server::CSession *self)
+{
+  // EXTERNAL: return CNetwork<95000,MAX_NETWORK_CONNECTIONS_450K>::get_socket((int)self);
+  return 0; // Stub: CNetwork template not available
+}
+
+// GetTriggerSessionEventType (line 1359682)
+int __cdecl exchange_server::CSession_GetTriggerSessionEventType(exchange_server::CSession *self)
+{
+  return *((_DWORD *)self + 136296);
+}
+
+// Parsing (line 1359688)
+int __cdecl exchange_server::CSession_Parsing(exchange_server::CSession *self, char *a2)
+{
+  char flag; // [esp+8h] [ebp-60h]
+  _BYTE dest[3]; // [esp+27h] [ebp-41h] BYREF
+  unsigned int v4; // [esp+2Ah] [ebp-3Eh] - undeclared variable for external calls
+  int v5; // undeclared variable for external calls
+  size_t v6; // packet size from dest
+  int v7[4]; // trace buffer
+  int v11; // loop variable
+  size_t n; // [esp+44h] [ebp-24h]
+  __int64 ms_tick; // [esp+48h] [ebp-20h]
+  size_t v10; // [esp+54h] [ebp-14h]
+
+  n = (size_t)&a2[*((_DWORD *)self + 6)];
+  // EXTERNAL: ms_tick = get_ms_tick();
+  ms_tick = 0; // Stub: timestamp function not available
+  *(_QWORD *)((char *)self + 4) = ms_tick;
+  if ( (int)n > 12 )
+  {
+    v11 = 0;
+    do
+    {
+      if ( *((_DWORD *)self + 6) )
+        *((_DWORD *)self + 11) -= *((_DWORD *)self + 6);
+      memcpy(dest, *((const void **)self + 11), 0xDu);
+      // Extract packet size from dest (4-byte int at offset 3)
+      v6 = *((_DWORD *)dest);
+      v10 = v6;
+      if ( v6 <= 0xC || v10 > 0x17318 )
+      {
+        // EXTERNAL: LogManager_logFormat(
+        // EXTERNAL:   (LogManager *)1,
+        // EXTERNAL:   (int)"ExchangeServerNetwork.h",
+        // EXTERNAL:   "bool exchange_server::CSession_Parsing(int)",
+        // EXTERNAL:   (const char *)0x18D,
+        // EXTERNAL:   "Recv Size[%d], Parsing Packet Size[%d] is Too Large",
+        // EXTERNAL:   a2,
+        // EXTERNAL:   v10);
+        return 0;
+      }
+      if ( n < v10 )
+        break;
+      if ( /* incomplete type */ 0 /* exchange_server::CSession::exchange_server_ */ )
+      {
+        if ( (**(int (__cdecl ***)(int, exchange_server::CSession *, _DWORD, size_t))/* incomplete type */ 0 /* exchange_server::CSession::exchange_server_ */)(
+               /* incomplete type */ 0 /* exchange_server::CSession::exchange_server_ */,
+               self,
+               *((_DWORD *)self + 11),
+               v10) )
+        {
+          // EXTERNAL: // EXTERNAL: cMyTrace_cMyTrace(...);
+          // EXTERNAL: // EXTERNAL: cMyTrace_operator(...);
+        }
+      }
+      n -= v10;
+      *((_DWORD *)self + 11) += v10;
+      *((_DWORD *)self + 6) = 0;
+      if ( !n )
+      {
+        *((_DWORD *)self + 11) = (char *)self + 48;
+        break;
+      }
+    }
+    while ( (int)n > 5 );
+    if ( (int)n > 0 )
+    {
+      if ( (int)n > 95000 )
+      {
+        // EXTERNAL: LogManager_logFormat(
+        // EXTERNAL:   (LogManager *)1,
+        // EXTERNAL:   (int)"ExchangeServerNetwork.h",
+        // EXTERNAL:   "bool exchange_server::CSession_Parsing(int)",
+        // EXTERNAL:   (const char *)0x1B7,
+        // EXTERNAL:   "[PARSING LENGTH EXCEPTION] parsinglength > MAX_SESSION_BUFFER_SIZE , memmove : parsinglength = %d",
+        // EXTERNAL:   (const char *)n);
+        return 0;
+      }
+      memmove((char *)self + 48, *((const void **)self + 11), n);
+      *((_DWORD *)self + 6) = n;
+      *((_DWORD *)self + 11) = (unsigned int)((char *)self + n + 48);
+    }
+    return 1;
+  }
+  return 1;
+}
+
+// OnRecv (line 1359772)
+_BOOL4 __cdecl exchange_server::CSession_OnRecv(exchange_server::CSession *self)
+{
+  char *v2; // [esp+1Ch] [ebp-Ch]
+
+  v2 = (char *)/* CNetwork::recv_packet */ 0; if(0) { // EXTERNAL: CNetwork::recv_packet((int)self)); }
+  if ( (int)v2 <= 0 )
+    return (int)v2 >= 0;
+  else
+    return (unsigned __int8)exchange_server::CSession_Parsing(self, v2) == 1;
+}
+
+// OnSend (line 1359784)
+int __cdecl exchange_server::CSession_OnSend(pthread_mutex_t *self)
+{
+  int *v1; // eax
+  char Socket; // bl
+  int id[6]; // [esp+10h] [ebp-18h] BYREF
+
+  if ( /* CNetwork::send_packet */ 0; if(0) { // EXTERNAL: CNetwork::send_packet(self) >= 0 )
+    return *((_DWORD *)self + 6)); }
+  v1 = __errno_location();
+  strerror(*v1);
+  Socket = exchange_server::CSession_GetSocket((exchange_server::CSession *)self);
+  // EXTERNAL: cMyTrace_cMyTrace(...);
+  // EXTERNAL: cMyTrace_operator(...);
+  return -1;
+}
+
+// OnError (line 1359801)
+int __cdecl exchange_server::CSession_OnError(exchange_server::CSession *self)
+{
+  int *v1; // eax
+  char Socket; // bl
+  int id[6]; // [esp+10h] [ebp-18h] BYREF
+
+  v1 = __errno_location();
+  strerror(*v1);
+  Socket = exchange_server::CSession_GetSocket(self);
+  // EXTERNAL: cMyTrace_cMyTrace(...);
+  // EXTERNAL: cMyTrace_operator(...);
+  return 0;
+}
+
+// OnAccept (line 1359816)
+int *__cdecl exchange_server::CSession_OnAccept(exchange_server::CSession *self)
+{
+  int Socket; // eax
+  int *v2; // eax
+  char flag; // bl
+  char flag; // [esp+8h] [ebp-70h]
+  socklen_t addr_len; // [esp+24h] [ebp-54h] BYREF
+  struct sockaddr addr; // [esp+28h] [ebp-50h] BYREF
+  int id[4]; // [esp+38h] [ebp-40h] BYREF
+  int id[4]; // [esp+48h] [ebp-30h] BYREF
+  int id[4]; // [esp+58h] [ebp-20h] BYREF
+  char flag[4]; // [esp+68h] [ebp-10h]
+  int *v12; // [esp+6Ch] [ebp-Ch]
+
+  addr_len = 16;
+  Socket = exchange_server::CSession_GetSocket(self);
+  *(_DWORD *)v11 = accept(Socket, &addr, &addr_len);
+  if ( *(int *)v11 >= 0 )
+  {
+    ntohs(*(uint16_t *)addr.sa_data);
+    v4 = (unsigned __int8)inet_ntoa(*(struct in_addr *)&addr.sa_data[2]);
+    // EXTERNAL: cMyTrace_cMyTrace(...);
+    // EXTERNAL: cMyTrace_operator(...);
+    v12 = (int *)(*(int (__cdecl **)(int))(*(_DWORD *)/* incomplete type */ 0 /* exchange_server::CSession::exchange_server_ */ + 8))(/* incomplete type */ 0 /* exchange_server::CSession::exchange_server_ */);
+    if ( v12 )
+    {
+      /* CNetwork::set_socket */ 0; if(0) { // EXTERNAL: CNetwork::set_socket(v12, *(int *)v11, 0)); }
+    }
+    else
+    {
+      // EXTERNAL: cMyTrace_cMyTrace(...);
+      // EXTERNAL: cMyTrace_operator(...);
+    }
+    return v12;
+  }
+  else
+  {
+    v2 = __errno_location();
+    strerror(*v2);
+    // EXTERNAL: cMyTrace_cMyTrace(...);
+    // EXTERNAL: cMyTrace_operator(...);
+    return 0;
+  }
+}
+
+// OnConnect (line 1359864)
+int __cdecl exchange_server::CSession_OnConnect(exchange_server::CSession *self)
+{
+  int ServerChannelNo; // eax
+  char *ServerIP; // eax
+  in_addr_t v3; // eax
+  __int16 ServerPORT; // ax
+  _BOOL4 v5; // ebx
+  PacketBuf *v7[5]; // [esp+14h] [ebp-14h] BYREF
+
+  if ( (*(int (__cdecl **)(int))(*(_DWORD *)/* incomplete type */ 0 /* exchange_server::CSession::exchange_server_ */ + 16))(/* incomplete type */ 0 /* exchange_server::CSession::exchange_server_ */) != 1 )
+    return 1;
+  // EXTERNAL: PacketGuard_PacketGuard(...);
+  // EXTERNAL: InterfacePacketBuf_clear(...);
+  // EXTERNAL: InterfacePacketBuf_put_header(...);
+  // EXTERNAL: ServerChannelNo = exchange_server_Get*(...); Stub: server info not available
+
+  ServerChannelNo = 0;
+  // EXTERNAL: InterfacePacketBuf_put_int(...);
+  // EXTERNAL: ServerIP = exchange_server_Get*(...); Stub: server info not available
+
+  ServerIP = 0;
+  v3 = inet_addr(ServerIP);
+  // EXTERNAL: InterfacePacketBuf_put_int(...);
+  // EXTERNAL: ServerPORT = exchange_server_Get*(...); Stub: server info not available
+
+  ServerPORT = 0;
+  // EXTERNAL: InterfacePacketBuf_put_short(...);
+  // EXTERNAL: InterfacePacketBuf_finalize(...);
+  v5 = exchange_server::CSession_Send(self, v7);
+  // EXTERNAL: PacketGuard::~PacketGuard(...);
+  return v5;
+}
+
+// Send (line 1359893)
+_BOOL4 __cdecl exchange_server::CSession_Send(exchange_server::CSession *self, PacketBuf **a2)
+{
+  int len; // ebx
+  char *packet; // eax
+  const char *v5; // [esp+14h] [ebp-24h]
+
+  if ( (unsigned __int8)InterfacePacketBuf_is_finallized(a2) )
+  {
+    len = // EXTERNAL: InterfacePacketBuf_get_len(...);
+    packet = (char *)InterfacePacketBuf_get_packet(a2, 0);
+    return /* CNetwork::send_packet */ 0; if(0) { // EXTERNAL: CNetwork::send_packet((int)self, packet, len) >= 0); }
+  }
+  else
+  {
+    LogManager_logFormat(
+      (LogManager *)1,
+      (int)"ExchangeServerNetwork.h",
+      "bool exchange_server::CSession_Send(PacketGuard&)",
+      (const char *)0x228,
+      "Packet.is_finallized return false",
+      v5);
+    return 0;
+  }
+}
+
+// Listen (line 1359920)
+int *__cdecl exchange_server::CSession_Listen(exchange_server::CSession *self, char *cp)
+{
+  int *v2; // eax
+  char flag; // bl
+  int id; // [esp+18h] [ebp-20h] BYREF
+  int id[4]; // [esp+1Ch] [ebp-1Ch] BYREF
+  int *v7; // [esp+2Ch] [ebp-Ch]
+
+  if ( !/* CNetwork::CreateListenSocket */ 0; if(0) { // EXTERNAL: CNetwork::CreateListenSocket(&v5, (uint16_t)self, cp) )
+  {
+    v2 = __errno_location()); }
+    v3 = (unsigned __int8)strerror(*v2);
+    // EXTERNAL: cMyTrace_cMyTrace(...);
+    // EXTERNAL: cMyTrace_operator(...);
+    return 0;
+  }
+  else
+  {
+    v7 = (int *)(*(int (__cdecl **)(int))(*(_DWORD *)/* incomplete type */ 0 /* exchange_server::CSession::exchange_server_ */ + 8))(/* incomplete type */ 0 /* exchange_server::CSession::exchange_server_ */);
+    if ( v7 )
+    {
+      /* CNetwork::set_socket */ 0; if(0) { // EXTERNAL: CNetwork::set_socket(v7, v5, 1)); }
+      return v7;
+    }
+    else
+    {
+      return 0;
+    }
+  }
+}
+
+// Connect (line 1359957)
+int *__cdecl exchange_server::CSession_Connect(exchange_server::CSession *self, const char *a2)
+{
+  int *v2; // eax
+  char flag; // bl
+  int id; // [esp+14h] [ebp-24h] BYREF
+  int id[4]; // [esp+18h] [ebp-20h] BYREF
+  int *v8; // [esp+2Ch] [ebp-Ch]
+
+  if ( /* CNetwork::CreateConnectionSocket */ 0; if(0) { // EXTERNAL: CNetwork::CreateConnectionSocket(&v5, (char *)self, (uint16_t)a2) )
+  {
+    v2 = __errno_location()); }
+    v3 = (unsigned __int8)strerror(*v2);
+    // EXTERNAL: cMyTrace_cMyTrace(...);
+    // EXTERNAL: cMyTrace_operator(...);
+    return 0;
+  }
+  else
+  {
+    v8 = (int *)(*(int (__cdecl **)(int))(*(_DWORD *)/* incomplete type */ 0 /* exchange_server::CSession::exchange_server_ */ + 8))(/* incomplete type */ 0 /* exchange_server::CSession::exchange_server_ */);
+    if ( v8 )
+    {
+      /* CNetwork::set_socket */ 0; if(0) { // EXTERNAL: CNetwork::set_socket(v8, v5, 1)); }
+      return v8;
+    }
+    else
+    {
+      return 0;
+    }
+  }
+}
+
+// Disconnect (line 1359994)
+int __cdecl exchange_server::CSession_Disconnect(exchange_server::CSession *self)
+{
+  void (__cdecl *v1)(int, int); // ebx
+  int ChannelNo; // eax
+  char flag; // [esp+8h] [ebp-20h]
+  int id[6]; // [esp+10h] [ebp-18h] BYREF
+
+  // EXTERNAL: cMyTrace_cMyTrace(...);
+  // EXTERNAL: cMyTrace_operator(...);
+  if ( /* incomplete type */ 0 /* exchange_server::CSession::exchange_server_ */ )
+  {
+    v1 = *(void (__cdecl **)(int, int))(*(_DWORD *)/* incomplete type */ 0 /* exchange_server::CSession::exchange_server_ */ + 4);
+    ChannelNo = exchange_server::CSession_GetChannelNo(self);
+    v1(/* incomplete type */ 0 /* exchange_server::CSession::exchange_server_ */, ChannelNo);
+  }
+  /* CNetwork::disconnect */ 0; if(0) { // EXTERNAL: CNetwork::disconnect((int)self)); }
+  (*(void (__cdecl **)(int, exchange_server::CSession *))(*(_DWORD *)/* incomplete type */ 0 /* exchange_server::CSession::exchange_server_ */ + 12))(
+    /* incomplete type */ 0 /* exchange_server::CSession::exchange_server_ */,
+    self);
+  return 1;
+}
+

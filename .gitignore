@@ -1,0 +1,108 @@
+# Build artifacts
+build/
+bin/
+dist/
+out/
+coverage/
+*.o
+*.obj
+*.a
+*.lib
+*.dll
+*.so
+*.exe
+*.pdb
+*.log
+*.pid
+*.tmp
+*.bak
+*.swp
+*.out
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Env files
+.env
+
+# Client test outputs
+client/tests/output/
+
+# Launcher build artifacts
+launcher/build_qt6/
+launcher/release/
+
+# Server logs / runtime artifacts
+src/channel_cpp/log/
+src/channel_cpp/run_channel.out
+src/channel_cpp/df_channel_r
+src/bridge_cpp/df_bridge_r
+
+# Dependency dirs
+node_modules/
+.venv/
+venv/
+deps/
+vendor/
+.pnpm-store/
+.yarn/
+.yarn-cache/
+.npm/
+gm_tools/**/node_modules/
+
+# Docs / reports / archives
+docs/
+reports/
+archive/
+backup/
+
+# Data and samples
+data/
+pvf_samples/
+pvfut/
+pvfUtility_BackUpPvf/
+server/
+server_code/
+server_configs/
+dnf1/
+rpm_packages/
+local_orm/
+mcp_memory_plugin/
+src_split/
+wew332/
+
+# Secrets / keys / large assets
+*.pvf
+*.bin
+*.dat
+*.mhe
+*.hsb
+*.key
+*.pem
+*.db
+*.ppm
+
+# Client prototype data assets
+client/prototype/**/*.ani
+client/prototype/**/*.mob
+client/prototype/**/*.skl
+client/prototype/**/*.lst
+client/prototype/**/*.atk
+client/prototype/**/*.act
+
+# Tools PVF binaries (keep sources/scripts)
+tools/pvf/*
+!tools/pvf/*.c
+!tools/pvf/*.sh
+tools/pvf_browser/backend/pvf_api
+
+# Third-party make distributions
+tools/make*
+
+# PVF test binaries
+src/pvf/test_pvf_manager
+
+# Workspace metadata
+.agent_memory/
+.claude/

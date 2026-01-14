@@ -1,0 +1,15 @@
+# Quest System Configuration
+# Format: `key` value
+# Phase 6.7 - Configuration Abstraction
+
+# Reward Multipliers
+`exp_multiplier` 1.5
+`gold_multiplier` 1.2
+
+# Quest Timeouts (seconds)
+`default_timeout` 3600
+`max_timeout` 7200
+
+# Quest Limits
+`max_active_quests` 20
+`max_objectives` 10

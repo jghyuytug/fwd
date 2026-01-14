@@ -1,0 +1,138 @@
+{
+  "dashboard": {
+    "title": "DNF GM工具 - 玩家数据概览",
+    "tags": ["dnf", "gm", "player"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "角色总数",
+        "type": "stat",
+        "targets": [
+          {
+            "datasource": "Player Mirror DB",
+            "rawSql": "SELECT COUNT(*) as value FROM charac_info WHERE delete_flag = 0",
+            "format": "table"
+          }
+        ],
+        "gridPos": {
+          "x": 0,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        }
+      },
+      {
+        "id": 2,
+        "title": "账号总数",
+        "type": "stat",
+        "targets": [
+          {
+            "datasource": "Player Mirror DB",
+            "rawSql": "SELECT COUNT(DISTINCT m_id) as value FROM charac_info WHERE delete_flag = 0",
+            "format": "table"
+          }
+        ],
+        "gridPos": {
+          "x": 6,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        }
+      },
+      {
+        "id": 3,
+        "title": "平均等级",
+        "type": "stat",
+        "targets": [
+          {
+            "datasource": "Player Mirror DB",
+            "rawSql": "SELECT ROUND(AVG(lev), 1) as value FROM charac_info WHERE delete_flag = 0",
+            "format": "table"
+          }
+        ],
+        "gridPos": {
+          "x": 12,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        }
+      },
+      {
+        "id": 4,
+        "title": "最高等级",
+        "type": "stat",
+        "targets": [
+          {
+            "datasource": "Player Mirror DB",
+            "rawSql": "SELECT MAX(lev) as value FROM charac_info WHERE delete_flag = 0",
+            "format": "table"
+          }
+        ],
+        "gridPos": {
+          "x": 18,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        }
+      },
+      {
+        "id": 5,
+        "title": "职业分布",
+        "type": "piechart",
+        "targets": [
+          {
+            "datasource": "Player Mirror DB",
+            "rawSql": "SELECT job as metric, COUNT(*) as value FROM charac_info WHERE delete_flag = 0 GROUP BY job",
+            "format": "table"
+          }
+        ],
+        "gridPos": {
+          "x": 0,
+          "y": 4,
+          "w": 12,
+          "h": 8
+        }
+      },
+      {
+        "id": 6,
+        "title": "等级分布",
+        "type": "bargauge",
+        "targets": [
+          {
+            "datasource": "Player Mirror DB",
+            "rawSql": "SELECT CASE WHEN lev < 50 THEN '<50' WHEN lev < 60 THEN '50-59' WHEN lev < 70 THEN '60-69' WHEN lev < 80 THEN '70-79' ELSE '80+' END as level_range, COUNT(*) as count FROM charac_info WHERE delete_flag = 0 GROUP BY level_range ORDER BY level_range",
+            "format": "table"
+          }
+        ],
+        "gridPos": {
+          "x": 12,
+          "y": 4,
+          "w": 12,
+          "h": 8
+        }
+      },
+      {
+        "id": 7,
+        "title": "Top 10高等级角色",
+        "type": "table",
+        "targets": [
+          {
+            "datasource": "Player Mirror DB",
+            "rawSql": "SELECT char_name as '角色名', job as '职业', lev as '等级', exp as '经验值' FROM charac_info WHERE delete_flag = 0 ORDER BY lev DESC, exp DESC LIMIT 10",
+            "format": "table"
+          }
+        ],
+        "gridPos": {
+          "x": 0,
+          "y": 12,
+          "w": 24,
+          "h": 8
+        }
+      }
+    ],
+    "schemaVersion": 36,
+    "version": 1,
+    "refresh": "30s"
+  }
+}

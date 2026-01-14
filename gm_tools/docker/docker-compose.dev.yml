@@ -1,0 +1,129 @@
+version: '3.8'
+
+# DNF GM工具 - 完整开发环境
+# 包含：MySQL、Node.js后端、React前端
+
+networks:
+  gm-network:
+    driver: bridge
+
+volumes:
+  gm-db-data:
+    driver: local
+
+services:
+  # ========================================
+  # MySQL 数据库
+  # ========================================
+  gm-mirror-db:
+    image: mysql:5.7
+    container_name: dnf-gm-mirror-db
+    restart: unless-stopped
+
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-TestRootPass123456}
+      MYSQL_DATABASE: gm_tools
+      TZ: Asia/Shanghai
+
+    volumes:
+      - gm-db-data:/var/lib/mysql
+      - ../database/schema_gm_tools.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ../database/schema_gm_mirror.sql:/docker-entrypoint-initdb.d/02-mirror.sql:ro
+
+    ports:
+      - "3307:3306"
+
+    networks:
+      - gm-network
+
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-TestRootPass123456}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ========================================
+  # Node.js 后端 API (开发模式)
+  # ========================================
+  gm-backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.dev
+    image: dnf-gm-backend:dev
+    container_name: dnf-gm-backend
+    restart: unless-stopped
+
+    environment:
+      # 数据库配置
+      DB_HOST: gm-mirror-db
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD:-TestRootPass123456}
+      DB_NAME: gm_tools
+      # 镜像数据库配置
+      MIRROR_DB_HOST: gm-mirror-db
+      MIRROR_DB_PORT: 3306
+      MIRROR_DB_USER: root
+      MIRROR_DB_PASSWORD: ${MYSQL_ROOT_PASSWORD:-TestRootPass123456}
+      MIRROR_DB_CAIN: taiwan_cain_mirror
+      MIRROR_DB_LOGIN: taiwan_login_mirror
+      # JWT配置
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
+      JWT_EXPIRES_IN: 1800
+      JWT_REFRESH_EXPIRES_IN: 604800
+      # 服务配置
+      NODE_ENV: development
+      PORT: 3001
+      API_PREFIX: /api/v1
+      # CORS
+      CORS_ORIGIN: http://localhost
+      CORS_CREDENTIALS: "true"
+      # Swagger
+      SWAGGER_ENABLED: "true"
+      TZ: Asia/Shanghai
+
+    ports:
+      - "3001:3001"
+
+    networks:
+      - gm-network
+
+    depends_on:
+      gm-mirror-db:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ========================================
+  # React 前端
+  # ========================================
+  gm-frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    image: dnf-gm-frontend:latest
+    container_name: dnf-gm-frontend
+    restart: unless-stopped
+
+    ports:
+      - "80:80"
+
+    networks:
+      - gm-network
+
+    depends_on:
+      gm-backend:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s

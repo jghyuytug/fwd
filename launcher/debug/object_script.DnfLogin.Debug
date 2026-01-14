@@ -1,0 +1,17 @@
+debug/main.o
+debug/widget.o
+debug/clickablelabel.o
+debug/regeditdialog.o
+debug/forgetdialog.o
+debug/aes_cbc.o
+debug/httpaesrequest.o
+debug/util.o
+debug/repasswddialog.o
+debug/checkqlineedit.o
+debug/moc_widget.o
+debug/moc_clickablelabel.o
+debug/moc_regeditdialog.o
+debug/moc_forgetdialog.o
+debug/moc_httpaesrequest.o
+debug/moc_repasswddialog.o
+debug/moc_checkqlineedit.o

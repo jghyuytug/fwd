@@ -1,0 +1,172 @@
+# ========================================
+# Prometheus 监控配置
+# DNF GM工具 - Week 3 基础设施配置
+# ========================================
+
+global:
+  scrape_interval: 15s  # 默认抓取间隔
+  evaluation_interval: 15s  # 告警规则评估间隔
+  scrape_timeout: 10s  # 抓取超时时间
+
+  external_labels:
+    cluster: 'dnf_gm_tools'
+    environment: 'production'
+
+# ========================================
+# 告警管理器配置（可选）
+# ========================================
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+          # - alertmanager:9093  # 如果有Alertmanager
+
+# ========================================
+# 告警规则文件
+# ========================================
+
+rule_files:
+  - "/etc/prometheus/alerts/*.yml"
+
+# ========================================
+# 抓取配置
+# ========================================
+
+scrape_configs:
+  # ========================================
+  # 1. Prometheus自监控
+  # ========================================
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: 'prometheus'
+
+  # ========================================
+  # 2. GM工具后端服务
+  # ========================================
+
+  - job_name: 'gm-tools'
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['gm-tools:9091']  # GM工具服务Metrics端口
+        labels:
+          service: 'gm-tools'
+          component: 'backend'
+
+    # 采集的指标（示例）
+    # - gm_api_requests_total{method="POST", endpoint="/api/items/grant"}
+    # - gm_api_duration_seconds{endpoint="/api/player/query"}
+    # - gm_database_query_duration_seconds
+    # - gm_active_sessions
+
+  # ========================================
+  # 3. Canal同步服务
+  # ========================================
+
+  - job_name: 'canal'
+    static_configs:
+      - targets: ['canal:11112']  # Canal Metrics端口
+        labels:
+          service: 'canal'
+          component: 'sync'
+
+    # 采集的指标
+    # - canal_instance_sync_delay_seconds
+    # - canal_instance_binlog_position
+    # - canal_instance_sync_rows_total
+
+  # ========================================
+  # 4. MySQL数据库（GM镜像库）
+  # ========================================
+
+  - job_name: 'mysql'
+    static_configs:
+      - targets: ['gm-mirror-db:9104']  # MySQL Exporter
+        labels:
+          service: 'mysql'
+          component: 'database'
+          instance: 'gm-mirror-db'
+
+    # 采集的指标
+    # - mysql_up
+    # - mysql_global_status_threads_connected
+    # - mysql_global_status_slow_queries
+    # - mysql_global_status_queries
+
+  # ========================================
+  # 5. Nginx反向代理
+  # ========================================
+
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx:9113']  # Nginx Exporter
+        labels:
+          service: 'nginx'
+          component: 'proxy'
+
+    # 采集的指标
+    # - nginx_up
+    # - nginx_http_requests_total
+    # - nginx_connections_active
+
+  # ========================================
+  # 6. 容器监控（cAdvisor）
+  # ========================================
+
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']  # 如果部署了cAdvisor
+        labels:
+          service: 'cadvisor'
+          component: 'container-monitoring'
+
+  # ========================================
+  # 7. Node Exporter（主机监控）
+  # ========================================
+
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']  # 如果部署了Node Exporter
+        labels:
+          service: 'node-exporter'
+          component: 'host'
+
+# ========================================
+# 配置说明
+# ========================================
+
+# 采集指标说明：
+#
+# 1. GM工具服务指标（需要在C代码中实现Prometheus客户端）
+#    - gm_api_requests_total: API请求总数（Counter）
+#    - gm_api_duration_seconds: API响应时间（Histogram）
+#    - gm_database_query_duration_seconds: 数据库查询耗时
+#    - gm_active_sessions: 当前活跃会话数（Gauge）
+#    - gm_operation_errors_total: 操作错误总数
+#
+# 2. Canal同步指标
+#    - canal_instance_sync_delay_seconds: 同步延迟
+#    - canal_instance_binlog_position: 当前binlog位置
+#    - canal_instance_sync_rows_total: 同步行数
+#
+# 3. MySQL指标（通过MySQL Exporter）
+#    - mysql_up: 数据库是否运行
+#    - mysql_global_status_threads_connected: 当前连接数
+#    - mysql_global_status_slow_queries: 慢查询数
+#    - mysql_global_status_queries: 查询总数
+#
+# 4. Nginx指标（通过Nginx Exporter或stub_status）
+#    - nginx_http_requests_total: HTTP请求总数
+#    - nginx_connections_active: 活跃连接数
+#
+# 5. 容器指标（通过cAdvisor）
+#    - container_cpu_usage_seconds_total: CPU使用
+#    - container_memory_usage_bytes: 内存使用
+#
+# 6. 主机指标（通过Node Exporter）
+#    - node_cpu_seconds_total: CPU使用率
+#    - node_memory_MemAvailable_bytes: 可用内存
+#    - node_disk_io_time_seconds_total: 磁盘I/O时间

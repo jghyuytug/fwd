@@ -1,0 +1,155 @@
+{
+  "dashboard": {
+    "title": "DNF GM工具 - GM操作监控",
+    "tags": ["dnf", "gm", "audit"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "今日操作总数",
+        "type": "stat",
+        "targets": [
+          {
+            "datasource": "GM Tools MySQL",
+            "rawSql": "SELECT COUNT(*) as value FROM gm_operation_logs WHERE DATE(created_at) = CURDATE()",
+            "format": "table"
+          }
+        ],
+        "gridPos": {
+          "x": 0,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        }
+      },
+      {
+        "id": 2,
+        "title": "成功率",
+        "type": "stat",
+        "targets": [
+          {
+            "datasource": "GM Tools MySQL",
+            "rawSql": "SELECT ROUND(SUM(CASE WHEN result='SUCCESS' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) as value FROM gm_operation_logs WHERE DATE(created_at) = CURDATE()",
+            "format": "table"
+          }
+        ],
+        "gridPos": {
+          "x": 6,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent"
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "在线GM数量",
+        "type": "stat",
+        "targets": [
+          {
+            "datasource": "GM Tools MySQL",
+            "rawSql": "SELECT COUNT(DISTINCT gm_user) as value FROM gm_login_logs WHERE login_result='SUCCESS' AND created_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR)",
+            "format": "table"
+          }
+        ],
+        "gridPos": {
+          "x": 12,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        }
+      },
+      {
+        "id": 4,
+        "title": "高风险操作（今日）",
+        "type": "stat",
+        "targets": [
+          {
+            "datasource": "GM Tools MySQL",
+            "rawSql": "SELECT COUNT(*) as value FROM gm_operation_logs WHERE DATE(created_at) = CURDATE() AND operation_type IN ('ACCOUNT_BAN', 'ITEM_DELETE', 'ACCOUNT_MODIFY')",
+            "format": "table"
+          }
+        ],
+        "gridPos": {
+          "x": 18,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 5, "color": "yellow" },
+                { "value": 10, "color": "red" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "操作时间线（24小时）",
+        "type": "graph",
+        "targets": [
+          {
+            "datasource": "GM Tools MySQL",
+            "rawSql": "SELECT UNIX_TIMESTAMP(created_at) * 1000 as time, COUNT(*) as value FROM gm_operation_logs WHERE created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR) GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d %H:00') ORDER BY time",
+            "format": "time_series"
+          }
+        ],
+        "gridPos": {
+          "x": 0,
+          "y": 4,
+          "w": 24,
+          "h": 8
+        }
+      },
+      {
+        "id": 6,
+        "title": "操作类型分布（今日）",
+        "type": "piechart",
+        "targets": [
+          {
+            "datasource": "GM Tools MySQL",
+            "rawSql": "SELECT operation_type as metric, COUNT(*) as value FROM gm_operation_logs WHERE DATE(created_at) = CURDATE() GROUP BY operation_type",
+            "format": "table"
+          }
+        ],
+        "gridPos": {
+          "x": 0,
+          "y": 12,
+          "w": 12,
+          "h": 8
+        }
+      },
+      {
+        "id": 7,
+        "title": "最近操作记录",
+        "type": "table",
+        "targets": [
+          {
+            "datasource": "GM Tools MySQL",
+            "rawSql": "SELECT created_at as '时间', gm_user as 'GM用户', operation_type as '操作类型', target_name as '目标', result as '结果', ip_address as 'IP地址' FROM gm_operation_logs ORDER BY log_id DESC LIMIT 50",
+            "format": "table"
+          }
+        ],
+        "gridPos": {
+          "x": 12,
+          "y": 12,
+          "w": 12,
+          "h": 8
+        }
+      }
+    ],
+    "schemaVersion": 36,
+    "version": 1,
+    "refresh": "10s"
+  }
+}

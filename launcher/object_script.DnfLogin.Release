@@ -1,0 +1,17 @@
+release/main.o
+release/widget.o
+release/clickablelabel.o
+release/regeditdialog.o
+release/forgetdialog.o
+release/aes_cbc.o
+release/httpaesrequest.o
+release/util.o
+release/repasswddialog.o
+release/checkqlineedit.o
+release/moc_widget.o
+release/moc_clickablelabel.o
+release/moc_regeditdialog.o
+release/moc_forgetdialog.o
+release/moc_httpaesrequest.o
+release/moc_repasswddialog.o
+release/moc_checkqlineedit.o

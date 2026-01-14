@@ -1,0 +1,91 @@
+#ifndef NETWORK_PACKET_TYPES_H
+#define NETWORK_PACKET_TYPES_H
+
+#include <stdint.h>
+#include "packet_enums.h"
+
+// Client command packet types
+// Confidence: 95% - Found explicit string table in Phase 2
+// Evidence: part05.c lines 94501-94550
+// REMOVED - Duplicate definition, see network/packet_enums.h:8
+/* enum ENUM_CMDPACKET {
+    // Connection & Login (0-9)
+    ENUM_CMDPACKET_CHECK_CONNECTION = 0,
+    ENUM_CMDPACKET_LOGIN = 1,
+    ENUM_CMDPACKET_SET_UDP_IP_PORT = 2,
+    ENUM_CMDPACKET_EXIT = 3,
+    ENUM_CMDPACKET_SELECT_CHARACTER = 4,
+    ENUM_CMDPACKET_CREATE_CHARACTER = 5,
+    ENUM_CMDPACKET_DELETE_CHARACTER = 6,
+    ENUM_CMDPACKET_RETURN_SELECT_CHARACTER = 7,
+    ENUM_CMDPACKET_GET_USERINFO = 8,
+    ENUM_CMDPACKET_RECOVER_STAMINA = 9,
+
+    // Party & Peer (10-14)
+    ENUM_CMDPACKET_REQUEST_PEER = 10,
+    ENUM_CMDPACKET_RESPONSE_PEER = 11,
+    ENUM_CMDPACKET_SET_PARTY_INFO = 12,
+    ENUM_CMDPACKET_LEAVE_PARTY = 13,
+    ENUM_CMDPACKET_WALKOUT_PARTY_MEMBER = 14,
+
+    // Game Start & Dungeon (15-17)
+    ENUM_CMDPACKET_START_GAME = 15,
+    ENUM_CMDPACKET_SELECT_DUNGEON = 16,
+    ENUM_CMDPACKET_SEND_MESSAGE = 17,
+
+    // Inventory (18-29)
+    ENUM_CMDPACKET_DELETE_ITEM = 18,
+    ENUM_CMDPACKET_MOVE_ITEMSPACE = 19,
+    ENUM_CMDPACKET_SORT_ITEM = 20,
+    ENUM_CMDPACKET_BUY_ITEM = 21,
+    ENUM_CMDPACKET_RENT_AVATAR = 22,
+    ENUM_CMDPACKET_EXTEND_AVATAR = 23,
+    ENUM_CMDPACKET_SELL_ITEM = 24,
+    ENUM_CMDPACKET_REPAIR_EQUIPMENT = 25,
+    ENUM_CMDPACKET_SET_ITEMTRADE_STATE = 26,
+    ENUM_CMDPACKET_COMPOUND_ITEM = 27,
+    ENUM_CMDPACKET_DISJOINT_ITEM = 28,
+    ENUM_CMDPACKET_USE_LOTTERY_ITEM = 29,
+
+    // Skills & Character (30-32)
+    ENUM_CMDPACKET_CHANGE_SKILLSLOT = 30,
+    ENUM_CMDPACKET_BUY_SKILL = 31,
+    ENUM_CMDPACKET_INCREASE_STATUS = 32,
+
+    // Quests (33-36)
+    ENUM_CMDPACKET_ACCEPT_QUEST = 33,
+    ENUM_CMDPACKET_GIVEUP_QUEST = 34,
+    ENUM_CMDPACKET_SET_QUEST_TRIGGER = 35,
+    ENUM_CMDPACKET_FINISH_QUEST = 36,
+
+    // Gameplay (37-49)
+    ENUM_CMDPACKET_SET_USER_POSITION = 37,
+    ENUM_CMDPACKET_SET_USER_AREA = 38,
+    ENUM_CMDPACKET_FISHING = 39,
+    ENUM_CMDPACKET_FINISH_LOADING = 40,
+    ENUM_CMDPACKET_USE_SKILL = 41,
+    ENUM_CMDPACKET_DIE_MONSTER = 42,
+    ENUM_CMDPACKET_DIE_CHARACTER = 43,
+    ENUM_CMDPACKET_USE_COIN = 44,
+    ENUM_CMDPACKET_GIVEUP_GAME = 45,
+    ENUM_CMDPACKET_GET_ITEM = 46,
+    ENUM_CMDPACKET_USE_STACKABLE = 47,
+    ENUM_CMDPACKET_MOVE_MAP = 48,
+    ENUM_CMDPACKET_SET_PLAY_RESULT = 49,
+
+    // Note: Remaining values extracted to packet_enums.h (values 50-99+)
+}; */
+
+// Global server effect types
+// Confidence: 90% - Clear usage in std::map
+// Evidence: Used as key in std::map<ENUM_GLOBAL_EFFECT_ARAD, AradServerStateMessage>
+// REMOVED - Duplicate definition, see network/packet_enums.h:152
+/* enum ENUM_GLOBAL_EFFECT_ARAD {
+    // Values extracted to packet_enums.h:152-164
+    // Based on std::map<ENUM_GLOBAL_EFFECT_ARAD, AradServerStateMessage> usage
+}; */
+
+// Japan region internal packets (placeholder)
+// Confidence: 40% - No direct evidence found
+
+#endif // NETWORK_PACKET_TYPES_H

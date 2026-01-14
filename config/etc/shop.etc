@@ -1,0 +1,18 @@
+# Shop System Configuration
+# Format: `key` value
+# Phase 6.7 - Configuration Abstraction
+
+# Discount Rates (1.0 = no discount)
+`default_discount` 1.0
+`vip_discount` 0.9
+`event_discount` 0.8
+`sell_price_ratio` 0.5
+
+# Refresh Schedule
+`daily_refresh_hour` 0
+`weekly_refresh_day` 1
+`secret_shop_duration` 7200
+
+# Purchase Limits
+`max_purchase_per_day` 10
+`max_purchase_per_week` 50

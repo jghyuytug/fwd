@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PVF装备浏览器</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- 头部 -->
+        <header class="header">
+            <h1>🎮 DNF装备浏览器</h1>
+            <div class="header-stats" id="stats">
+                <span>加载中...</span>
+            </div>
+        </header>
+
+        <!-- 主内容区 -->
+        <div class="main-content">
+            <!-- 左侧边栏：文件树 -->
+            <aside class="sidebar">
+                <div class="sidebar-header">
+                    <h2>📁 文件浏览</h2>
+                    <select id="fileTypeFilter" onchange="filterFileType()">
+                        <option value="equ">装备 (.equ)</option>
+                        <option value="stk">消耗品 (.stk)</option>
+                        <option value="all">全部文件</option>
+                    </select>
+                </div>
+
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="搜索文件名..."
+                           oninput="searchFiles()">
+                    <button onclick="clearSearch()">✕</button>
+                </div>
+
+                <div class="file-tree" id="fileTree">
+                    <div class="loading">加载文件列表...</div>
+                </div>
+            </aside>
+
+            <!-- 中间：装备详情 -->
+            <main class="detail-panel">
+                <div class="detail-header">
+                    <h2>⚔️ 装备详情</h2>
+                    <button class="btn-export" onclick="exportEquipment()">📤 导出JSON</button>
+                </div>
+
+                <div id="equipmentDetail" class="equipment-detail">
+                    <div class="welcome">
+                        <div class="welcome-icon">🎯</div>
+                        <h3>欢迎使用DNF装备浏览器</h3>
+                        <p>请从左侧选择一个装备文件查看详情</p>
+                        <div class="features">
+                            <div class="feature">
+                                <span class="feature-icon">📊</span>
+                                <span>查看装备属性</span>
+                            </div>
+                            <div class="feature">
+                                <span class="feature-icon">🔍</span>
+                                <span>搜索过滤</span>
+                            </div>
+                            <div class="feature">
+                                <span class="feature-icon">📁</span>
+                                <span>浏览文件树</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+
+            <!-- 右侧边栏：搜索和过滤 -->
+            <aside class="filter-panel">
+                <div class="filter-header">
+                    <h2>🔍 高级搜索</h2>
+                </div>
+
+                <div class="filter-group">
+                    <label>关键词</label>
+                    <input type="text" id="advSearchKeyword" placeholder="输入关键词">
+                </div>
+
+                <div class="filter-group">
+                    <label>稀有度</label>
+                    <select id="rarityFilter">
+                        <option value="all">全部</option>
+                        <option value="0">普通 (白)</option>
+                        <option value="1">高级 (蓝)</option>
+                        <option value="2">稀有 (紫)</option>
+                        <option value="3">神器 (粉)</option>
+                        <option value="4">传说 (橙)</option>
+                        <option value="5">史诗 (金)</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label>最小等级</label>
+                    <input type="number" id="minLevelFilter" min="1" max="100" placeholder="1-100">
+                </div>
+
+                <div class="filter-group">
+                    <label>品级</label>
+                    <input type="number" id="gradeFilter" min="1" max="80" placeholder="1-80">
+                </div>
+
+                <button class="btn-search" onclick="advancedSearch()">🔍 搜索</button>
+                <button class="btn-reset" onclick="resetFilters()">🔄 重置</button>
+
+                <div class="search-results" id="searchResults">
+                    <!-- 搜索结果将显示在这里 -->
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

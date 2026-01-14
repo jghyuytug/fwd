@@ -1,0 +1,2 @@
+    uint16_t msg_no;
+    memcpy(&msg_no, packet + 5, 2);

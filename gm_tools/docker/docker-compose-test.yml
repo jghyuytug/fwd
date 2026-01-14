@@ -1,0 +1,95 @@
+# DNF GM工具系统 - Docker Compose配置（本地测试简化版）
+# Week 3 基础设施测试部署
+# Windows环境 - 仅启动核心服务进行验证
+
+version: '3.8'
+
+services:
+  # ========================================
+  # GM镜像数据库（核心服务）
+  # ========================================
+  gm-mirror-db:
+    image: mysql:5.7
+    container_name: dnf-gm-mirror-db-test
+    restart: unless-stopped
+
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: gm_tools
+      TZ: Asia/Shanghai
+
+    volumes:
+      # 数据持久化（Windows路径）
+      - gm-db-data:/var/lib/mysql
+      # 初始化脚本
+      - ../database/schema_gm_tools.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ../database/schema_gm_mirror.sql:/docker-entrypoint-initdb.d/02-mirror.sql:ro
+
+    ports:
+      - "3307:3306"
+
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+08:00
+
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+    networks:
+      - gm_tools_network
+
+  # ========================================
+  # Grafana（监控可视化）
+  # ========================================
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: dnf-gm-grafana-test
+    restart: unless-stopped
+
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_SERVER_ROOT_URL: http://localhost:3000
+      GF_INSTALL_PLUGINS: ""
+
+    volumes:
+      - grafana-data:/var/lib/grafana
+
+    ports:
+      - "3000:3000"
+
+    depends_on:
+      gm-mirror-db:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+    networks:
+      - gm_tools_network
+
+# ========================================
+# 网络配置
+# ========================================
+networks:
+  gm_tools_network:
+    driver: bridge
+    name: gm_tools_test_network
+
+# ========================================
+# 数据卷
+# ========================================
+volumes:
+  gm-db-data:
+    name: gm_db_data_test
+  grafana-data:
+    name: gm_grafana_data_test

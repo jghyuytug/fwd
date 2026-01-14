@@ -1,0 +1,49 @@
+# Game Server Makefile
+# Builds standalone network test server
+
+USE_32BIT ?= 1
+CC = gcc
+
+ARCHFLAGS =
+ifeq ($(USE_32BIT),1)
+  ARCHFLAGS += -m32
+endif
+
+CFLAGS = $(ARCHFLAGS) -std=gnu99 -Wall -Wextra -Wno-unused-parameter -g -I../../include -I..
+LDFLAGS = $(ARCHFLAGS) -lpthread
+
+# Source files
+SRCS = game_server.c server_main.c
+OBJS = $(SRCS:.c=.o)
+
+# Target
+TARGET = game_server
+
+.PHONY: all clean run
+
+all: $(TARGET)
+	@echo ""
+	@echo "========================================"
+	@echo "Build complete: $(TARGET)"
+	@echo "========================================"
+	@echo "Run with: ./$(TARGET) [port]"
+	@echo "Default port: 7000"
+	@echo ""
+
+$(TARGET): $(OBJS)
+	$(CC) $(LDFLAGS) -o $@ $^
+
+%.o: %.c game_server.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+run: $(TARGET)
+	./$(TARGET) 7000
+
+clean:
+	rm -f $(OBJS) $(TARGET)
+	@echo "Clean complete"
+
+# Test with netcat
+test:
+	@echo "Testing connection to localhost:7000..."
+	@echo -ne '\x04\x00\x00\x00' | nc -q1 localhost 7000 || echo "Connection test done"

@@ -1,0 +1,80 @@
+#include "charac_advance_altar_item_desc_orm.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define MAX_QUERY_LEN 8192
+
+int CharacAdvanceAltarItemDesc_Add(DBConnectionManager* manager, const CharacAdvanceAltarItemDesc* record) {
+    char query[MAX_QUERY_LEN];
+    DBQueryResult result;
+
+    if (!manager || !record) return -1;
+
+    snprintf(query, sizeof(query),
+        "INSERT INTO charac_advance_altar_item_desc (ridable_id, item_type, item_id) "
+        "VALUES (%d, %d, %d)",
+        record->ridable_id, record->item_type, record->item_id);
+
+    if (DBConnectionManager_ExecuteQuery(manager, DB_TYPE_CAIN, query, &result) < 0) {
+        return -1;
+    }
+
+    DBQueryResult_Free(&result);
+    return 0;
+}
+
+int CharacAdvanceAltarItemDesc_Get(DBConnectionManager* manager, int ridable_id, short item_type, int item_id, CharacAdvanceAltarItemDesc* record) {
+    char query[MAX_QUERY_LEN];
+    DBQueryResult result;
+    char* row[3];
+
+    if (!manager || !record) return -1;
+
+    snprintf(query, sizeof(query),
+        "SELECT ridable_id, item_type, item_id FROM charac_advance_altar_item_desc WHERE ridable_id = %d AND item_type = %d AND item_id = %d",
+        ridable_id, item_type, item_id);
+
+    if (DBConnectionManager_ExecuteQuery(manager, DB_TYPE_CAIN, query, &result) < 0)
+        return -1;
+
+    if (DBQueryResult_FetchRow(&result, row) <= 0) {
+        DBQueryResult_Free(&result);
+        return -1;
+    }
+
+    memset(record, 0, sizeof(CharacAdvanceAltarItemDesc));
+    record->ridable_id = row[0] ? atoi(row[0]) : 0;
+    record->item_type = row[1] ? atoi(row[1]) : 0;
+    record->item_id = row[2] ? atoi(row[2]) : 0;
+
+    DBQueryResult_Free(&result);
+    return 0;
+}
+
+int CharacAdvanceAltarItemDesc_GetAll(DBConnectionManager* manager, CharacAdvanceAltarItemDesc* records, int max_count, int* actual_count) {
+    char query[MAX_QUERY_LEN];
+    DBQueryResult result;
+    char* row[3];
+    int count = 0;
+
+    if (!manager || !records || !actual_count) return -1;
+
+    snprintf(query, sizeof(query),
+        "SELECT ridable_id, item_type, item_id FROM charac_advance_altar_item_desc");
+
+    if (DBConnectionManager_ExecuteQuery(manager, DB_TYPE_CAIN, query, &result) < 0)
+        return -1;
+
+    while (count < max_count && DBQueryResult_FetchRow(&result, row) > 0) {
+        memset(&records[count], 0, sizeof(CharacAdvanceAltarItemDesc));
+        records[count].ridable_id = row[0] ? atoi(row[0]) : 0;
+        records[count].item_type = row[1] ? atoi(row[1]) : 0;
+        records[count].item_id = row[2] ? atoi(row[2]) : 0;
+        count++;
+    }
+
+    *actual_count = count;
+    DBQueryResult_Free(&result);
+    return 0;
+}

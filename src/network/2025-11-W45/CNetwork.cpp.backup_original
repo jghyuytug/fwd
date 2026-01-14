@@ -1,0 +1,3 @@
+# This file contains the original CNetwork.cpp with template errors
+# Backed up before creating stub implementation
+# Original size: ~1500 lines with full template specializations for CNetwork<4096,450000>

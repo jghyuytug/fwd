@@ -1,0 +1,316 @@
+version: '3.8'
+
+# DNF GM工具 - 混合架构部署
+# Week 3 基础设施配置
+# 生成日期: 2025-11-09
+
+services:
+  # ========================================
+  # GM镜像数据库 (MySQL 5.7)
+  # ========================================
+  gm-mirror-db:
+    image: mysql:5.7
+    container_name: dnf-gm-mirror-db
+    restart: unless-stopped
+
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: gm_tools
+      TZ: Asia/Shanghai
+
+    volumes:
+      # 数据持久化
+      - gm-db-data:/var/lib/mysql
+      # 初始化脚本
+      - ../database/schema_gm_tools.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ../database/schema_gm_mirror.sql:/docker-entrypoint-initdb.d/02-mirror.sql:ro
+      # 配置文件
+      - ../config/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+      # 备份目录
+      - ../database/backups:/backups
+
+    ports:
+      - "3307:3306"  # 避免与生产数据库端口冲突
+
+    networks:
+      - gm-network
+
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          cpus: '2'
+          memory: 4G
+
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ========================================
+  # Canal 数据同步服务
+  # ========================================
+  canal:
+    image: canal/canal-server:v1.1.6
+    container_name: dnf-canal
+    restart: unless-stopped
+
+    environment:
+      # Canal Server配置
+      canal.admin.manager: ''
+      canal.admin.port: 11110
+      canal.admin.user: admin
+      canal.admin.passwd: admin
+      # Instance配置
+      canal.instance.master.address: ${PRODUCTION_DB_HOST}:3306
+      canal.instance.dbUsername: ${CANAL_DB_USER}
+      canal.instance.dbPassword: ${CANAL_DB_PASSWORD}
+      canal.instance.connectionCharset: UTF-8
+      canal.instance.filter.regex: taiwan_cain\\..*,taiwan_login\\..*
+      # 目标数据库配置
+      canal.mq.topic: gm_sync
+      TZ: Asia/Shanghai
+
+    volumes:
+      # Canal配置
+      - ../canal/conf:/home/admin/canal-server/conf:ro
+      - ../canal/logs:/home/admin/canal-server/logs
+
+    ports:
+      - "11111:11111"  # Canal Server端口
+      - "11112:11112"  # Metrics端口
+
+    networks:
+      - gm-network
+
+    depends_on:
+      gm-mirror-db:
+        condition: service_healthy
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11112/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # ========================================
+  # GM工具后端服务 (C语言)
+  # ========================================
+  gm-tools:
+    build:
+      context: ../../
+      dockerfile: gm_tools/docker/Dockerfile.gm-tools
+    image: dnf-gm-tools:latest
+    container_name: dnf-gm-tools
+    restart: unless-stopped
+
+    environment:
+      # 数据库配置
+      DB_HOST: gm-mirror-db
+      DB_PORT: 3306
+      DB_USER: ${GM_DB_USER}
+      DB_PASSWORD: ${GM_DB_PASSWORD}
+      DB_NAME: gm_tools
+      # JWT配置
+      JWT_PRIVATE_KEY_PATH: /etc/gm_tools/jwt_private.pem
+      JWT_PUBLIC_KEY_PATH: /etc/gm_tools/jwt_public.pem
+      JWT_EXPIRATION: 1800  # 30分钟
+      # 服务配置
+      SERVER_PORT: 8001
+      LOG_LEVEL: INFO
+      TZ: Asia/Shanghai
+
+    volumes:
+      # 配置文件
+      - ../config/gm_tools.conf:/etc/gm_tools/config.conf:ro
+      - ../config/jwt_private.pem:/etc/gm_tools/jwt_private.pem:ro
+      - ../config/jwt_public.pem:/etc/gm_tools/jwt_public.pem:ro
+      # 日志
+      - ../logs/gm_tools:/var/log/gm_tools
+
+    ports:
+      - "8001:8001"  # HTTP API端口
+
+    networks:
+      - gm-network
+
+    depends_on:
+      gm-mirror-db:
+        condition: service_healthy
+      canal:
+        condition: service_healthy
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # ========================================
+  # Nginx 反向代理 (HTTPS)
+  # ========================================
+  nginx:
+    image: nginx:1.24-alpine
+    container_name: dnf-nginx
+    restart: unless-stopped
+
+    volumes:
+      # Nginx配置
+      - ../nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../nginx/conf.d:/etc/nginx/conf.d:ro
+      # SSL证书
+      - ../nginx/ssl:/etc/nginx/ssl:ro
+      # 静态文件（前端）
+      - ../frontend/build:/usr/share/nginx/html:ro
+      # 日志
+      - ../logs/nginx:/var/log/nginx
+
+    ports:
+      - "443:443"   # HTTPS
+      - "80:80"     # HTTP (重定向到HTTPS)
+
+    networks:
+      - gm-network
+
+    depends_on:
+      gm-tools:
+        condition: service_healthy
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ========================================
+  # Prometheus 监控
+  # ========================================
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: dnf-prometheus
+    restart: unless-stopped
+
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+
+    volumes:
+      - ../monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../monitoring/alerts:/etc/prometheus/alerts:ro
+      - prometheus-data:/prometheus
+
+    ports:
+      - "9090:9090"
+
+    networks:
+      - gm-network
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+  # ========================================
+  # Grafana 可视化
+  # ========================================
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: dnf-grafana
+    restart: unless-stopped
+
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_INSTALL_PLUGINS: ''
+      TZ: Asia/Shanghai
+
+    volumes:
+      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+
+    ports:
+      - "3000:3000"
+
+    networks:
+      - gm-network
+
+    depends_on:
+      - prometheus
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+# ========================================
+# 网络配置
+# ========================================
+networks:
+  gm-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+# ========================================
+# 数据卷
+# ========================================
+volumes:
+  gm-db-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+
+# ========================================
+# 资源汇总
+# ========================================
+# 总CPU: 11核 (limits)
+# 总内存: 19GB (limits)
+# 总磁盘: 约100GB (数据库50GB + 日志/监控50GB)

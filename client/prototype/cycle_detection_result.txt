@@ -1,0 +1,37 @@
+PVF循环依赖检测结果
+==================================================
+
+自引用: 4 个
+  ui/gbosstower/result.ui
+  equipment/character/common/jacket/leather/coat_lt_2choro155.equ
+  equipment/character/mage/weapon/rod/rod_2choro26.equ
+  etc/itemdictionary/itemdictionary.etc
+
+互相引用: 12 对
+  ui/gbosstower/result.ui <-> ui/gbosstower/result.ui
+  passiveobject/monster/cosmofiend/shootingstar.obj <-> equipment/character/common/title/chn_soul_of_white_tiger_red.equ
+  monster/newmonsters/advancealtar/friend/mermadia_mage/action/move.act <-> equipment/character/common/title/chn_2011_summer_red.equ
+  equipment/character/common/jacket/leather/coat_lt_2choro155.equ <-> equipment/character/common/jacket/leather/coat_lt_2choro155.equ
+  n_quest/lufthafen/seatrainretaking/training_66_seatraintaking_gear.qst <-> monster/newmonsters/aradwoman/gbl_chief_libraian/action/down.act
+  equipment/character/mage/weapon/rod/rod_2choro26.equ <-> equipment/character/common/shoulder/cloth/shd_cl_2choro37.equ
+  equipment/character/mage/weapon/rod/rod_2choro26.equ <-> equipment/character/mage/weapon/rod/rod_2choro26.equ
+  equipment/character/mage/weapon/rod/rod_2choro26.equ <-> equipment/character/common/wrist/brac_2choro1184.equ
+  equipment/character/mage/weapon/rod/rod_2choro26.equ <-> equipment/character/common/jacket/cloth/coat_cl_2choro312.equ
+  equipment/character/fighter/weapon/tonfa/tonfa_2choro27.equ <-> equipment/character/swordman/avatar/cap/afancy_blgreaglehair.equ
+  equipment/character/common/shoulder/cloth/shd_cl_2choro37.equ <-> equipment/character/gunner/weapon/revolver/rev_coltpats.equ
+  etc/itemdictionary/itemdictionary.etc <-> etc/itemdictionary/itemdictionary.etc
+
+强连通分量: 1 个
+
+SCC #1 (352 节点):
+  equipment/character/common/wrist/brac_2choro994.equ
+  aicharacter/fighter/slummyprincessparis/slummyprincessparis_grim.aic
+  aicharacter/_weresist/gunner/choa/key/h.key
+  equipment/character/common/ring/ring_mstone.equ
+  quest/epic/1-7.qst
+  aicharacter/gunner/junon/junon.aic
+  monster/nugol/particle/bug-move-kemuri.ptl
+  monster/newmonsters/gbl/gbltentaclenamed/attackinfo/summon1.atk
+  aicharacter/_jojochan/thief/agarum_thief/ai/action.ai
+  map/shonan/gate_shonan_01(d-21).map
+  ... 还有 342 个

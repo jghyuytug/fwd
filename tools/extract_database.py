@@ -1,0 +1,337 @@
+#!/usr/bin/env python3
+"""
+数据库代码提取工具
+从 df_game_r_v3.c 中提取 MySQL、CDBConnector、DBMgr 相关代码
+"""
+
+import re
+import sys
+from pathlib import Path
+
+class DatabaseExtractor:
+    def __init__(self, source_file):
+        self.source_file = Path(source_file)
+        self.output_dir = Path("src/database")
+        self.include_dir = Path("include/database")
+
+        # 目标类
+        self.target_classes = ['MySQL', 'CDBConnector', 'DBMgr', 'CQueryCounter']
+
+        # 存储提取的代码
+        self.declarations = {cls: [] for cls in self.target_classes}
+        self.implementations = {cls: [] for cls in self.target_classes}
+        self.structures = []
+
+    def extract(self):
+        """主提取流程"""
+        print(f"[*] 读取源文件: {self.source_file}")
+        print(f"    文件大小: {self.source_file.stat().st_size / 1024 / 1024:.1f} MB")
+
+        # 第一遍：提取函数声明
+        print(f"\n[*] 第一遍：提取函数声明...")
+        self.extract_declarations()
+
+        # 第二遍：提取函数实现
+        print(f"\n[*] 第二遍：提取函数实现...")
+        self.extract_implementations()
+
+        # 第三遍：提取结构体定义
+        print(f"\n[*] 第三遍：提取结构体定义...")
+        self.extract_structures()
+
+        # 生成输出文件
+        print(f"\n[*] 生成输出文件...")
+        self.generate_files()
+
+        # 统计信息
+        self.print_statistics()
+
+    def extract_declarations(self):
+        """提取函数声明"""
+        # 模式：匹配函数声明行
+        # 例如：int __cdecl MySQL::get_int(MySQL *this, int id, unsigned int *a3);
+        pattern = re.compile(
+            r'^([a-zA-Z_][\w\s\*]+?)\s+(__cdecl\s+)?(' + '|'.join(self.target_classes) + r')::(\w+)\s*\([^)]*\)\s*;',
+            re.MULTILINE
+        )
+
+        with open(self.source_file, 'r', encoding='utf-8', errors='ignore') as f:
+            line_num = 0
+            for line in f:
+                line_num += 1
+
+                # 只处理声明部分（通常在文件前 100,000 行）
+                if line_num > 100000:
+                    break
+
+                match = pattern.match(line)
+                if match:
+                    return_type = match.group(1).strip()
+                    class_name = match.group(3)
+                    func_name = match.group(4)
+
+                    self.declarations[class_name].append({
+                        'line': line_num,
+                        'code': line.rstrip(),
+                        'return_type': return_type,
+                        'function': func_name
+                    })
+
+        # 打印统计
+        for cls in self.target_classes:
+            count = len(self.declarations[cls])
+            if count > 0:
+                print(f"    {cls}: {count} 个声明")
+
+    def extract_implementations(self):
+        """提取函数实现"""
+        # 由于函数实现需要完整提取（包括多行函数体），这里使用不同的策略
+
+        print("    使用行扫描模式提取函数实现...")
+
+        with open(self.source_file, 'r', encoding='utf-8', errors='ignore') as f:
+            lines = []
+            line_num = 0
+            current_func = None
+            brace_count = 0
+            func_start_line = 0
+
+            # 函数开始模式
+            func_start_pattern = re.compile(
+                r'^([a-zA-Z_][\w\s\*]+?)\s+(__cdecl\s+)?(' + '|'.join(self.target_classes) + r')::(\w+)\s*\('
+            )
+
+            for line in f:
+                line_num += 1
+
+                # 跳过声明部分（前 100,000 行）
+                if line_num <= 100000:
+                    continue
+
+                # 跳过 Flex 表格部分（97,302 - 148,355）
+                if 97000 <= line_num <= 150000:
+                    continue
+
+                # 检查是否是函数开始
+                if current_func is None:
+                    match = func_start_pattern.match(line)
+                    if match:
+                        return_type = match.group(1).strip()
+                        class_name = match.group(3)
+                        func_name = match.group(4)
+
+                        current_func = {
+                            'class': class_name,
+                            'function': func_name,
+                            'return_type': return_type,
+                            'lines': []
+                        }
+                        func_start_line = line_num
+                        brace_count = 0
+
+                # 如果正在提取函数
+                if current_func:
+                    current_func['lines'].append(line.rstrip())
+
+                    # 计数大括号
+                    brace_count += line.count('{')
+                    brace_count -= line.count('}')
+
+                    # 函数结束
+                    if brace_count == 0 and '{' in ''.join(current_func['lines']):
+                        # 保存函数实现
+                        class_name = current_func['class']
+                        self.implementations[class_name].append({
+                            'line': func_start_line,
+                            'code': '\n'.join(current_func['lines']),
+                            'function': current_func['function'],
+                            'return_type': current_func['return_type']
+                        })
+
+                        current_func = None
+
+                # 进度指示（每 10 万行）
+                if line_num % 100000 == 0:
+                    print(f"      进度: {line_num:,} 行...")
+
+        # 打印统计
+        for cls in self.target_classes:
+            count = len(self.implementations[cls])
+            if count > 0:
+                print(f"    {cls}: {count} 个实现")
+
+    def extract_structures(self):
+        """提取结构体定义"""
+        # 模式：匹配结构体定义
+        # 例如：struct MySQL { ... };
+
+        struct_pattern = re.compile(
+            r'^(struct|class)\s+(' + '|'.join(self.target_classes) + r')\s*\{',
+            re.MULTILINE
+        )
+
+        with open(self.source_file, 'r', encoding='utf-8', errors='ignore') as f:
+            line_num = 0
+            current_struct = None
+            brace_count = 0
+
+            for line in f:
+                line_num += 1
+
+                # 只在前 100,000 行查找
+                if line_num > 100000:
+                    break
+
+                # 检查是否是结构体开始
+                if current_struct is None:
+                    match = struct_pattern.match(line)
+                    if match:
+                        current_struct = {
+                            'keyword': match.group(1),  # struct or class
+                            'name': match.group(2),
+                            'lines': [],
+                            'start_line': line_num
+                        }
+                        brace_count = 0
+
+                # 如果正在提取结构体
+                if current_struct:
+                    current_struct['lines'].append(line.rstrip())
+
+                    # 计数大括号
+                    brace_count += line.count('{')
+                    brace_count -= line.count('}')
+
+                    # 结构体结束
+                    if brace_count == 0 and '{' in ''.join(current_struct['lines']):
+                        self.structures.append(current_struct)
+                        print(f"    找到结构体: {current_struct['name']} (行 {current_struct['start_line']})")
+                        current_struct = None
+
+    def generate_files(self):
+        """生成输出文件"""
+        # 创建目录
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.include_dir.mkdir(parents=True, exist_ok=True)
+
+        # 为每个类生成文件
+        for cls in self.target_classes:
+            if not self.declarations[cls] and not self.implementations[cls]:
+                continue
+
+            # 生成头文件
+            self.generate_header(cls)
+
+            # 生成源文件
+            self.generate_source(cls)
+
+    def generate_header(self, class_name):
+        """生成头文件"""
+        header_file = self.include_dir / f"{class_name}.h"
+
+        print(f"    生成: {header_file}")
+
+        with open(header_file, 'w', encoding='utf-8') as f:
+            # 头文件保护
+            guard = f"__{class_name.upper()}_H__"
+            f.write(f"#ifndef {guard}\n")
+            f.write(f"#define {guard}\n\n")
+
+            # 包含依赖
+            f.write("#include <mysql/mysql.h>\n")
+            f.write("#include <common/defs.h>\n\n")
+
+            # 结构体定义
+            struct_found = False
+            for struct in self.structures:
+                if struct['name'] == class_name:
+                    f.write("// Structure definition\n")
+                    f.write('\n'.join(struct['lines']))
+                    f.write("\n\n")
+                    struct_found = True
+                    break
+
+            if not struct_found:
+                # 如果没找到结构体定义，生成前向声明
+                f.write(f"// Forward declaration\n")
+                f.write(f"struct {class_name};\n\n")
+
+            # 函数声明
+            if self.declarations[class_name]:
+                f.write(f"// Function declarations ({len(self.declarations[class_name])} functions)\n\n")
+
+                for decl in self.declarations[class_name]:
+                    f.write(f"{decl['code']}\n")
+
+            # 结束头文件保护
+            f.write(f"\n#endif // {guard}\n")
+
+    def generate_source(self, class_name):
+        """生成源文件"""
+        if not self.implementations[class_name]:
+            return
+
+        source_file = self.output_dir / f"{class_name}.cpp"
+
+        print(f"    生成: {source_file}")
+
+        with open(source_file, 'w', encoding='utf-8') as f:
+            # 包含头文件
+            f.write(f"#include <database/{class_name}.h>\n")
+            f.write("#include <common/error_codes.h>\n")
+            f.write("#include <common/constants_improved.h>\n\n")
+
+            # 函数实现
+            f.write(f"// {class_name} Implementation ({len(self.implementations[class_name])} functions)\n\n")
+
+            for impl in self.implementations[class_name]:
+                f.write(f"// {impl['function']} (line {impl['line']})\n")
+                f.write(f"{impl['code']}\n\n")
+
+    def print_statistics(self):
+        """打印统计信息"""
+        print(f"\n{'='*60}")
+        print(f"提取统计")
+        print(f"{'='*60}")
+
+        total_decl = 0
+        total_impl = 0
+
+        for cls in self.target_classes:
+            decl_count = len(self.declarations[cls])
+            impl_count = len(self.implementations[cls])
+
+            if decl_count > 0 or impl_count > 0:
+                print(f"\n{cls}:")
+                print(f"  声明: {decl_count:4d}")
+                print(f"  实现: {impl_count:4d}")
+
+                total_decl += decl_count
+                total_impl += impl_count
+
+        print(f"\n总计:")
+        print(f"  声明: {total_decl:4d}")
+        print(f"  实现: {total_impl:4d}")
+        print(f"  结构体: {len(self.structures):4d}")
+
+        print(f"\n输出目录:")
+        print(f"  头文件: {self.include_dir}/")
+        print(f"  源文件: {self.output_dir}/")
+        print(f"{'='*60}\n")
+
+def main():
+    if len(sys.argv) > 1:
+        source_file = sys.argv[1]
+    else:
+        source_file = "archive/source_versions/df_game_r_v3.c"
+
+    print(f"数据库代码提取工具")
+    print(f"{'='*60}\n")
+
+    extractor = DatabaseExtractor(source_file)
+    extractor.extract()
+
+    print("\n✓ 提取完成!")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,102 @@
+// CEpoll Template Class Implementation
+// Extracted from decompiled source
+// Template instantiation: CEpoll<exchange_server::CSession>
+
+#include "network/CEpoll.h"
+#include "network/CSession.h"
+#include "common/ida_types.h"
+#include <sys/epoll.h>
+#include <unistd.h>
+
+namespace exchange_server {
+
+void __cdecl exchange_server::CEpoll<exchange_server::CSession>::~CEpoll(EpollHandler *a1)
+{
+  EpollHandler::~EpollHandler(a1);
+}
+
+void __cdecl exchange_server::CEpoll<exchange_server::CSession>::CEpoll(EpollHandler *a1)
+{
+  EpollHandler::EpollHandler(a1);
+}
+
+int __cdecl exchange_server::CEpoll<exchange_server::CSession>::WaitForEvent(struct epoll_event *event, int timeout)
+{
+  struct epoll_event *events; // [esp+1Ch] [ebp-2Ch]
+  int epfd; // [esp+20h] [ebp-28h]
+  int v5; // [esp+24h] [ebp-24h]
+  char v6; // [esp+2Bh] [ebp-1Dh]
+  int i; // [esp+2Ch] [ebp-1Ch]
+  exchange_server::CSession *ptr; // [esp+30h] [ebp-18h]
+  exchange_server::CSession *v9; // [esp+38h] [ebp-10h]
+
+  events = (struct epoll_event *)EpollHandler::GetEpollEvents((EpollHandler *)event);
+  epfd = EpollHandler::GetEpollFD((EpollHandler *)event);
+  v5 = epoll_wait(epfd, events, 600, timeout);
+  if ( v5 < 0 && *__errno_location() != 4 && *__errno_location() )
+    return 0;
+  for ( i = 0; i < v5; ++i )
+  {
+    ptr = (exchange_server::CSession *)events[i].data.ptr;
+    v6 = 1;
+    if ( (events[i].events & 1) != 0 )
+    {
+      if ( (exchange_server::CSession::GetTriggerSessionEventType(ptr) & 8) != 0 )
+      {
+        v9 = (exchange_server::CSession *)exchange_server::CSession::OnAccept(ptr);
+        if ( v9 )
+          exchange_server::CEpoll<exchange_server::CSession>::RegisterSession(event, v9, 7);
+      }
+      else if ( (exchange_server::CSession::GetTriggerSessionEventType(ptr) & 1) != 0 )
+      {
+        v6 = exchange_server::CSession::OnRecv(ptr);
+      }
+    }
+    if ( (events[i].events & 4) != 0 )
+    {
+      if ( (exchange_server::CSession::GetTriggerSessionEventType(ptr) & 0x10) != 0 )
+      {
+        v6 = exchange_server::CSession::OnConnect(ptr);
+        if ( v6 )
+          exchange_server::CSession::SetTriggerSessionEventType(ptr, 7);
+      }
+      else if ( (exchange_server::CSession::GetTriggerSessionEventType(ptr) & 2) != 0
+             && exchange_server::CSession::OnSend((pthread_mutex_t *)ptr) < 0 )
+      {
+        v6 = 0;
+      }
+    }
+    if ( (events[i].events & 0x18) != 0 )
+      v6 = exchange_server::CSession::OnError(ptr);
+    if ( v6 != 1 )
+    {
+      exchange_server::CEpoll<exchange_server::CSession>::UnregisterSession((EpollHandler *)event, ptr);
+      exchange_server::CSession::Disconnect(ptr);
+    }
+  }
+  return 1;
+}
+
+bool __cdecl exchange_server::CEpoll<exchange_server::CSession>::RegisterSession(
+        struct epoll_event *event,
+        exchange_server::CSession *a2,
+        int a3)
+{
+  int Socket; // eax
+
+  exchange_server::CSession::SetTriggerSessionEventType(a2, a3);
+  Socket = exchange_server::CSession::GetSocket(a2);
+  return EpollHandler::SetEpoll(event, a2, Socket, 0) == 0;
+}
+
+bool __cdecl exchange_server::CEpoll<exchange_server::CSession>::UnregisterSession(
+        EpollHandler *a1,
+        exchange_server::CSession *a2)
+{
+  int Socket; // eax
+
+  Socket = exchange_server::CSession::GetSocket(a2);
+  return EpollHandler::ResetEpoll(a1, Socket) == 0;
+}
+
+} // namespace exchange_server

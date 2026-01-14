@@ -1,0 +1,8 @@
+
+        /* Phase 14: Cross-Server Matching System */
+        case 550: return handle_cross_match_queue(s, data, data_len);    /* 跨服排队 */
+        case 551: return handle_cross_match_cancel(s, data, data_len);   /* 取消排队 */
+        case 552: return handle_cross_match_status(s, data, data_len);   /* 匹配状态 */
+        case 553: return handle_cross_match_accept(s, data, data_len);   /* 接受匹配 */
+        case 554: return handle_cross_match_decline(s, data, data_len);  /* 拒绝匹配 */
+        case 555: return handle_cross_match_result(s, data, data_len);   /* 匹配结果 */

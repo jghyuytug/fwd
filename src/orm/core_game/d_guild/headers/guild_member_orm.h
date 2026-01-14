@@ -1,0 +1,53 @@
+#ifndef GUILD_MEMBER_ORM_H
+#define GUILD_MEMBER_ORM_H
+
+#include "db_connection_manager.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef struct {
+    int guild_id;
+    int m_id;
+    signed char server_id;
+    int charac_no;
+    char charac_name[21];
+    char memo[31];
+    signed char grade;
+    signed char job;
+    signed char grow_type;
+    signed char lev;
+    signed char age;
+    char born_year[3];
+    char sex[2];
+    char apply_time[20];
+    char member_time[20];
+    signed char member_flag;
+    short bbs_cnt;
+    char last_visit_time[20];
+    signed char secede_type;
+    char secede_time[20];
+    int member_point;
+    int member_point_prev;
+    char last_play_time[20];
+    char nick_name[13];
+} GuildMember;
+
+/* CRUD Operations */
+int GuildMember_Add(DBConnectionManager* manager, const GuildMember* record);
+int GuildMember_Get(DBConnectionManager* manager, int guild_id, int charac_no, GuildMember* record);
+int GuildMember_Update(DBConnectionManager* manager, const GuildMember* record);
+int GuildMember_Delete(DBConnectionManager* manager, int guild_id, int charac_no);
+int GuildMember_Exists(DBConnectionManager* manager, int guild_id, int charac_no);
+int GuildMember_GetAll(DBConnectionManager* manager, GuildMember* records, int max_count, int* actual_count);
+int GuildMember_GetByCharacNo(DBConnectionManager* manager, int charac_no, GuildMember* record);
+int GuildMember_GetByGuild(DBConnectionManager* manager, int guild_id, GuildMember* records, int max_count, int* actual_count);
+int GuildMember_UpdateFlag(DBConnectionManager* manager, int guild_id, int charac_no, signed char flag);
+int GuildMember_ClearGuild(DBConnectionManager* manager, int guild_id, signed char flag);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* GUILD_MEMBER_ORM_H */

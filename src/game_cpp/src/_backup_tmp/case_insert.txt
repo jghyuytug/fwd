@@ -1,0 +1,7 @@
+
+        /* Phase 14: Cash Shop System */
+        case 510: return handle_cash_shop_get_list(s, data, data_len);   /* 商城列表 */
+        case 511: return handle_cash_shop_buy(s, data, data_len);        /* 购买商品 */
+        case 512: return handle_cash_shop_get_balance(s, data, data_len);/* 获取余额 */
+        case 513: return handle_cash_shop_recharge(s, data, data_len);   /* 充值 */
+        case 514: return handle_cash_shop_gift(s, data, data_len);       /* 赠送 */

@@ -1,0 +1,41 @@
+{
+  "apiVersion": 1,
+  "datasources": [
+    {
+      "name": "GM Tools MySQL",
+      "type": "mysql",
+      "access": "proxy",
+      "url": "dnf-gm-mirror-db-test:3306",
+      "database": "gm_tools",
+      "user": "gm_tools_reader",
+      "secureJsonData": {
+        "password": "CHANGE_ME_READER_PASSWORD"
+      },
+      "jsonData": {
+        "maxOpenConns": 10,
+        "maxIdleConns": 2,
+        "connMaxLifetime": 14400
+      },
+      "isDefault": false,
+      "editable": true
+    },
+    {
+      "name": "Player Mirror DB",
+      "type": "mysql",
+      "access": "proxy",
+      "url": "dnf-gm-mirror-db-test:3306",
+      "database": "taiwan_cain_mirror",
+      "user": "gm_tools_reader",
+      "secureJsonData": {
+        "password": "CHANGE_ME_READER_PASSWORD"
+      },
+      "jsonData": {
+        "maxOpenConns": 10,
+        "maxIdleConns": 2,
+        "connMaxLifetime": 14400
+      },
+      "isDefault": true,
+      "editable": true
+    }
+  ]
+}

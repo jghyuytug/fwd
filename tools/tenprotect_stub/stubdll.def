@@ -1,0 +1,5 @@
+LIBRARY "stubdll"
+EXPORTS
+    CreateObj
+    StubDll_Ping
+

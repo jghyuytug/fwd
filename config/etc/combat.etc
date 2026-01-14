@@ -1,0 +1,22 @@
+# Combat System Configuration
+# Format: `key` value
+# Phase 6.7 - Configuration Abstraction
+
+# Damage Formula Parameters
+`defense_constant` 1000
+`min_damage_rate` 0.01
+`attribute_divisor` 200
+
+# Buff System Parameters
+`max_buff_stack` 10
+`default_buff_duration` 30000
+`buff_can_stack` 1
+
+# Critical Hit Parameters
+`base_critical_rate` 5
+`critical_rate_per_level` 0.1
+`base_critical_damage` 50
+
+# Accuracy and Evasion
+`base_accuracy` 95
+`base_evasion` 5

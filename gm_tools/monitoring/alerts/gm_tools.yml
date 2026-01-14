@@ -1,0 +1,277 @@
+# ========================================
+# Prometheus 告警规则
+# DNF GM工具 - Week 3 基础设施配置
+# ========================================
+
+groups:
+  # ========================================
+  # 1. GM工具服务告警
+  # ========================================
+
+  - name: gm_tools_alerts
+    interval: 30s
+    rules:
+      # GM服务宕机
+      - alert: GMToolsDown
+        expr: up{job="gm-tools"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: gm-tools
+        annotations:
+          summary: "GM工具服务宕机"
+          description: "GM工具服务已停止响应超过1分钟"
+
+      # API错误率过高
+      - alert: GMToolsHighErrorRate
+        expr: rate(gm_api_errors_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          service: gm-tools
+        annotations:
+          summary: "GM工具API错误率过高"
+          description: "5分钟内API错误率超过5%: {{ $value }}"
+
+      # API响应时间过长
+      - alert: GMToolsSlowAPI
+        expr: histogram_quantile(0.95, rate(gm_api_duration_seconds_bucket[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          service: gm-tools
+        annotations:
+          summary: "GM工具API响应缓慢"
+          description: "P95响应时间超过500ms: {{ $value }}s"
+
+      # 活跃会话数异常高
+      - alert: GMToolsHighSessions
+        expr: gm_active_sessions > 100
+        for: 10m
+        labels:
+          severity: warning
+          service: gm-tools
+        annotations:
+          summary: "GM工具并发会话数过高"
+          description: "当前活跃会话数: {{ $value }} (正常<100)"
+
+  # ========================================
+  # 2. Canal同步告警
+  # ========================================
+
+  - name: canal_sync_alerts
+    interval: 30s
+    rules:
+      # Canal服务宕机
+      - alert: CanalDown
+        expr: up{job="canal"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: canal
+        annotations:
+          summary: "Canal同步服务宕机"
+          description: "Canal服务已停止响应超过1分钟"
+
+      # 同步延迟过高
+      - alert: CanalHighSyncDelay
+        expr: canal_instance_sync_delay_seconds > 30
+        for: 5m
+        labels:
+          severity: warning
+          service: canal
+        annotations:
+          summary: "Canal同步延迟过高"
+          description: "同步延迟超过30秒: {{ $value }}s"
+
+      # 同步延迟严重
+      - alert: CanalCriticalSyncDelay
+        expr: canal_instance_sync_delay_seconds > 300
+        for: 5m
+        labels:
+          severity: critical
+          service: canal
+        annotations:
+          summary: "Canal同步延迟严重"
+          description: "同步延迟超过5分钟: {{ $value }}s，可能数据已过时"
+
+  # ========================================
+  # 3. MySQL数据库告警
+  # ========================================
+
+  - name: mysql_alerts
+    interval: 30s
+    rules:
+      # MySQL宕机
+      - alert: MySQLDown
+        expr: mysql_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: mysql
+        annotations:
+          summary: "MySQL数据库宕机"
+          description: "MySQL数据库已停止响应超过1分钟"
+
+      # 连接数过高
+      - alert: MySQLHighConnections
+        expr: mysql_global_status_threads_connected > 100
+        for: 5m
+        labels:
+          severity: warning
+          service: mysql
+        annotations:
+          summary: "MySQL连接数过高"
+          description: "当前连接数: {{ $value }} (正常<100)"
+
+      # 慢查询过多
+      - alert: MySQLHighSlowQueries
+        expr: rate(mysql_global_status_slow_queries[5m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+          service: mysql
+        annotations:
+          summary: "MySQL慢查询过多"
+          description: "5分钟内慢查询速率: {{ $value }}/s"
+
+      # 磁盘空间不足
+      - alert: MySQLLowDiskSpace
+        expr: (node_filesystem_avail_bytes{mountpoint="/var/lib/mysql"} / node_filesystem_size_bytes{mountpoint="/var/lib/mysql"}) < 0.2
+        for: 5m
+        labels:
+          severity: critical
+          service: mysql
+        annotations:
+          summary: "MySQL数据目录磁盘空间不足"
+          description: "可用空间 < 20%: {{ $value | humanizePercentage }}"
+
+  # ========================================
+  # 4. Nginx告警
+  # ========================================
+
+  - name: nginx_alerts
+    interval: 30s
+    rules:
+      # Nginx宕机
+      - alert: NginxDown
+        expr: up{job="nginx"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: nginx
+        annotations:
+          summary: "Nginx反向代理宕机"
+          description: "Nginx服务已停止响应超过1分钟"
+
+      # HTTP 5xx错误率过高
+      - alert: NginxHigh5xxRate
+        expr: rate(nginx_http_requests_total{status=~"5.."}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          service: nginx
+        annotations:
+          summary: "Nginx 5xx错误率过高"
+          description: "5分钟内5xx错误率: {{ $value }}"
+
+  # ========================================
+  # 5. 容器资源告警
+  # ========================================
+
+  - name: container_alerts
+    interval: 30s
+    rules:
+      # CPU使用率过高
+      - alert: ContainerHighCPU
+        expr: rate(container_cpu_usage_seconds_total[5m]) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+          service: container
+        annotations:
+          summary: "容器CPU使用率过高"
+          description: "容器 {{ $labels.name }} CPU使用率: {{ $value | humanizePercentage }}"
+
+      # 内存使用率过高
+      - alert: ContainerHighMemory
+        expr: (container_memory_usage_bytes / container_spec_memory_limit_bytes) > 0.9
+        for: 5m
+        labels:
+          severity: critical
+          service: container
+        annotations:
+          summary: "容器内存使用率过高"
+          description: "容器 {{ $labels.name }} 内存使用率: {{ $value | humanizePercentage }}"
+
+      # 容器重启
+      - alert: ContainerRestarted
+        expr: rate(container_last_seen[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          service: container
+        annotations:
+          summary: "容器发生重启"
+          description: "容器 {{ $labels.name }} 在过去5分钟内重启"
+
+  # ========================================
+  # 6. 主机资源告警
+  # ========================================
+
+  - name: host_alerts
+    interval: 30s
+    rules:
+      # CPU使用率过高
+      - alert: HostHighCPU
+        expr: (1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m]))) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+          service: host
+        annotations:
+          summary: "主机CPU使用率过高"
+          description: "主机CPU使用率: {{ $value | humanizePercentage }}"
+
+      # 内存使用率过高
+      - alert: HostHighMemory
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.9
+        for: 5m
+        labels:
+          severity: critical
+          service: host
+        annotations:
+          summary: "主机内存使用率过高"
+          description: "主机内存使用率: {{ $value | humanizePercentage }}"
+
+      # 磁盘空间不足
+      - alert: HostLowDiskSpace
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.2
+        for: 5m
+        labels:
+          severity: critical
+          service: host
+        annotations:
+          summary: "主机磁盘空间不足"
+          description: "挂载点 {{ $labels.mountpoint }} 可用空间 < 20%: {{ $value | humanizePercentage }}"
+
+# ========================================
+# 告警级别说明
+# ========================================
+
+# critical（严重）：
+#   - 服务宕机
+#   - 数据丢失风险
+#   - 立即需要人工介入
+#   - 示例：MySQL宕机、Canal停止同步、磁盘满
+#
+# warning（警告）：
+#   - 性能下降
+#   - 资源使用率高
+#   - 需要关注但不紧急
+#   - 示例：API响应慢、CPU使用率高
+#
+# info（信息）：
+#   - 一般性通知
+#   - 不需要立即处理
+#   - 示例：配置变更、定期报告

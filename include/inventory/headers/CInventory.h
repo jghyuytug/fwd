@@ -1,0 +1,158 @@
+#ifndef __CINVENTORY_H__
+#define __CINVENTORY_H__
+
+#include <common/defs.h>
+#include <user/CUser.h>
+
+// Forward declaration
+struct CInventory;
+
+// Function declarations (145 functions)
+
+char *__cdecl CInventory::GetCreatureMgrW(CInventory *this);
+char *__cdecl CInventory::GetAvatarItemMgrR(CInventory *this);
+char *__cdecl CInventory::GetAvatarItemMgrW(CInventory *this);
+int __cdecl CInventory::GetEventCoin(CInventory *this);
+CInventory *__cdecl CInventory::SetEventCoin(CInventory *this, unsigned int id);
+int __cdecl CInventory::get_money(CInventory *this);
+int __cdecl CInventory::GetPayCoin(CInventory *this);
+CInventory *__cdecl CInventory::SetPayCoin(CInventory *this, unsigned int id);
+char *__cdecl CInventory::GetCreatureMgrR(CInventory *this);
+CInventory *__cdecl CInventory::SetInventoryMemory(CInventory *this, InventoryMemory *a2);
+void __cdecl CInventory::CInventory(CInventory *this);
+CInventory *__cdecl CInventory::set_money(CInventory *this, unsigned int id);
+int __cdecl CInventory::getTotalCoin(CInventory *this);
+CInventory *__cdecl CInventory::SetCoin(CInventory *this, unsigned int id);
+int __cdecl CInventory::GetCoin(CInventory *this);
+_BOOL4 __cdecl CInventory::IsCoinUsable(CInventory *this);
+CInventory *__cdecl CInventory::set_inventory_capacity(CInventory *this, int id);
+int __cdecl CInventory::get_inventory_capacity(CInventory *this);
+CInventory *__cdecl CInventory::SetClearAvatar(CInventory *this, unsigned int id, int value);
+bool __cdecl CInventory::SetClearAvatar(CInventory *this, unsigned int *a2);
+CInventory *__cdecl CInventory::setCopy(CInventory *this, const CInventory *inventory);
+int __cdecl CInventory::getPackedCodeArray1(CInventory *this, unsigned int *a2, int id);
+int __cdecl CInventory::getSortedKeyArray(CInventory *this, _DWORD *base, int id);
+int __cdecl CInventory::getHashCode(CInventory *this, unsigned __int8 *a2);
+int __cdecl CInventory::UseUpCoin(CInventory *this, unsigned int id);
+int __cdecl CInventory::UseCoin(int *a1, int id);
+int __cdecl CInventory::FindItemLock(_DWORD *a1, char flag, _DWORD *a3, int *a4);
+void __cdecl CInventory::SendItemLockList(int *a1, int id, int value, char flag);
+void __cdecl CInventory::SendItemLockListInven(CInventory *this);
+void __cdecl CInventory::SendItemLockListAvatar(CInventory *this);
+void __cdecl CInventory::SendItemLockListCreature(CInventory *this);
+int __cdecl CInventory::CheckValidSlot(CInventory *this, int id, int value);
+char *__cdecl CInventory::GetInvenStart(CInventory *this, int id);
+ReservedCapacity *__cdecl CInventory::ResetSlot(CInventory *this, int id, int value);
+int __cdecl CInventory::get_item_count(CInventory *this, int id);
+int __cdecl CInventory::get_item_count(CInventory *this, int id, unsigned int value);
+int __cdecl CInventory::IsEquipAvatar(CInventory *this);
+int __cdecl CInventory::GetRemainCapacity(_DWORD *a1, int id, int value);
+int __cdecl CInventory::get_empty_slot(_DWORD *a1, int id, int value);
+CInventory *__stdcall CInventory::GetInvenSlot(CInventory *this, int *a2, int id, int value);
+int __cdecl CInventory::GetInvenSlotByRef(CInventory *this, int id, int value, Inven_Item *item);
+int __cdecl CInventory::GetInvenData(CInventory *this, char *a2, Inven_Item *item);
+char *__cdecl CInventory::GetInvenRef(CInventory *this, int id, int value);
+char *__cdecl CInventory::GetInvenRef(CInventory *this, int id, int value);
+int __cdecl CInventory::ChangeEquip(CInventory *inventory, int id, CInventory *inventory, int value);
+int __cdecl CInventory::MakeItemPacket(CInventory *inventory, int id, unsigned int value, PacketBuf **a4);
+int __cdecl CInventory::MakeSecuRewarditemPacket(int id, int value, int count, PacketBuf **a4);
+int __cdecl CInventory::MakeItemList(CInventory *inventory, int id, InterfacePacketBuf *a3);
+int __cdecl CInventory::MakeEquipList(CInventory *inventory, InterfacePacketBuf *a2, char flag, int id, int value);
+int __cdecl CInventory::gain_money(int id, unsigned int value, char *a3, char flag, int count);
+int __cdecl CInventory::use_money(int id, int value, char *a3, char flag);
+int __cdecl CInventory::use_equip(CInventory *this, unsigned int id);
+CUserCharacInfo *__cdecl CInventory::UpdateDailyCoin(CInventory *this, int id);
+int __cdecl CInventory::use_item(CInventory *this, int id, char *a3, int value);
+int __cdecl CInventory::try_use_item(CInventory *this, int id, int value, int count);
+int __cdecl CInventory::update_item(CInventory *inventory, int id, int value, int count, int index, int type, int result, int status, int id2, int value2, int count2, int index2, int type2, int result2, int status2, int id3, int value3, int count3, char flag); // idb
+_BOOL4 __cdecl CInventory::isEquipmentPlaceableAtInventory(CInventory *this);
+int __cdecl CInventory::GetSlotItemType(CInventory *this, int id);
+int __cdecl CInventory::move_item(CUser **a1, unsigned int id, int value, int count, int index);
+int __cdecl CInventory::getStartEndPos(int id, int value, _DWORD *a3, _DWORD *a4);
+int __cdecl CInventory::StartEndPos(int id, int value, _DWORD *a3, _DWORD *a4);
+int __cdecl CInventory::GetItemType(CInventory *this, char *a2);
+int __cdecl CInventory::tryInsertItemIntoEquipment(int id, __int64 a2);
+int __cdecl CInventory::tryInsertInvenItemIntoQuickSlot(int id, long double a2);
+int __cdecl CInventory::tryStackInvenItemIntoQuickSlot(int id, __int64 a2);
+int __cdecl CInventory::tryStackInvenItemIntoCorrespondingSpace(int id, __int64 a2);
+int __cdecl CInventory::tryInsertInvenItemIntoCoresspondingSpace(int id, long double a2);
+int __cdecl CInventory::tryInsertItemIntoInventory(int id, long double a2);
+int __cdecl CInventory::insertItemIntoEquipment(_DWORD *a1, __int64 a2, int id, int value, int count, int index, int type, int result, int status, int id2, int value2, int count2, int index2, int type2, int result2, int status2, int id3, char flag);
+int __cdecl CInventory::insertInvenItemIntoQuickSlot(_DWORD *a1, long double a2, int id, int value, int count, int index, int type, int result, int status, int id2, int value2, int count2, int index2, int type2, int result2, int status2, char flag);
+int __cdecl CInventory::insertInvenItemIntoCoresspondingSpace(_DWORD *a1, long double a2, int id, int value, int count, int index, int type, int result, int status, int id2, int value2, int count2, int index2, int type2, int result2, int status2, char flag);
+int __cdecl CInventory::stackInvenItemIntoQuickSlot(int id, long double a2, int value, int count, int index, int type, int result, int status, int id2, int value2, int count2, int index2, int type2, int result2, int status2, int id3, char flag);
+int __cdecl CInventory::stackInvenItemIntoCorrespondingSpace(int id, long double a2, int value, int count, int index, int type, int result, int status, int id2, int value2, int count2, int index2, int type2, int result2, int status2, int id3, char flag);
+int __cdecl CInventory::insertItemIntoInventory(int *a1, __int64 a2, int id, int value, int count, int index, int type, int result, int status, int id2, int value2, int count2, int index2, int type2, int result2, char flag, int status2, char type3);
+int __cdecl CInventory::doesExistEquipItem(CInventory *this, int id, int value);
+int __cdecl CInventory::getExistEquipItem(CInventory *this, int id, int value, int count);
+int __cdecl CInventory::removeDupliacteEquipItem(CInventory *this);
+int __cdecl CInventory::tryInsertAvatarIntoInventory(int id);
+int __cdecl CInventory::getAvatarEmptySlot(CInventory *this, int id, int value);
+int __cdecl CInventory::insertAvatarIntoInventory(_DWORD *a1, __int64 a2, int id, int value, int count, int index, int type, int result, int status, int id2, int value2, int count2, int index2, int type2, int result2, char flag, int status2, char type3);
+int __cdecl CInventory::insertAvatarIntoSpecificSlot(_DWORD *a1, __int64 a2, int id, int value, int count, int index, int type, int result, int status, int id2, int value2, int count2, int index2, int type2, int result2, char flag, int status2, int id3, char type3);
+int __cdecl CInventory::insert_item_special_slot(int id, __int64 a2, int value, int count, int index, int type, int result, int status, int id2, int value2, int count2, int index2, int type2, int result2, int status2, char flag, signed int id3, int value3, char *a19, int count3);
+int __cdecl CInventory::delete_item(CInventory *inventory, int id, int value, int count, int index, char flag);
+int __cdecl CInventory::MoveItemToEmptySlotOfInventory(CInventory *this, int id, int value, int count);
+int __cdecl CInventory::SortInvenSlot(CInventory *inventory, int id); // idb
+int __cdecl CInventory::sort(int id, int value);
+_BOOL4 __cdecl CInventory::check_slot_empty(CInventory *this, int id);
+int __cdecl CInventory::check_empty_count(int id, int value, int count);
+int __cdecl CInventory::QuickEmptyCount(CInventory *this);
+int __cdecl CInventory::InvenEmptycount(_DWORD *a1, int id);
+int __cdecl CInventory::check_item_exist(CInventory *this, char *a2);
+int __cdecl CInventory::CheckExistItemInInventoryOrEquipment(CInventory *this, char *a2, int *a3, bool *a4);
+bool __cdecl CInventory::ShowAllExistItemsForErrorCheck(CInventory *this);
+int __cdecl CInventory::check_vilmark_dungeon_item_exist(CInventory *this, int id);
+_BOOL4 __cdecl CInventory::possible_to_insert(CInventory *this, char *a2);
+int __cdecl CInventory::erase_repeated_item(CInventory *inventory, _DWORD *a2, _DWORD *a3);
+_BOOL4 __cdecl CInventory::tryDeleteEventItems(CUser **a1, _DWORD *a2);
+int __cdecl CInventory::delete_event_items(CUser **a1, _DWORD *a2, int id, _BYTE *a4, char *a5, int value, char flag);
+int __cdecl CInventory::tryInsertEventItems(int *a1, _DWORD *a2);
+int __cdecl CInventory::insert_event_items(CInventory *inventory, _DWORD *a2, int id, char *a4, int value, char flag, char *pszSrc, char *a8);
+int __cdecl CInventory::CheckNeedItemList(CUser **a1, _DWORD *a2);
+int __cdecl CInventory::CheckEquipmentItemCondition(CInventory *inventory, _DWORD *a2, int id, Inven_Item *item);
+int __cdecl CInventory::CheckEquipmentItemCondition(CInventory *inventory, int id, __int16 a3, int value);
+bool __cdecl CInventory::CalBlankSlot(CInventory *inventory, _DWORD *a2, _DWORD *a3);
+bool __cdecl CInventory::CalNeedSlot(CInventory *inventory, int id, _DWORD *a3);
+void __cdecl CInventory::SendAvatarEvent(CUser **this, int src, int id, int value, int count, int index);
+void __cdecl CInventory::MoveClearAvatar(CInventory *this, int id, int value, unsigned int count, unsigned int index, int type, int result);
+int __cdecl CInventory::isAnyExpiredAvatarItem(CInventory *this);
+bool __cdecl CInventory::ExpiredAvatarItem(CUser **this);
+int __cdecl CInventory::checkToFix(CInventory *this);
+bool __cdecl CInventory::CheckNFix(CInventory *this);
+bool __cdecl CInventory::ChecknFixWineAndMoru(CInventory *this);
+bool __cdecl CInventory::reset(CInventory *this);
+int __cdecl CInventory::AddAvatarItem(CInventory *inventory, int id, int value, bool a4, char flag, char type, char *src, int count, bool a9, __int16 a10);
+int __cdecl CInventory::_SaveAvatarItem(CUser **this, int id, int value, bool a4, char flag, const stAvatarEmblemInfo_t *a6, char *src, unsigned int count, const stAvatarExpansionInfo_t *a9);
+int __cdecl CInventory::IsExistStackable(int id, int value, int count);
+int __cdecl CInventory::IsOverStackableItem();
+bool __cdecl CInventory::RemoveKCItem(CInventory *this, Inven_Item *item);
+bool __cdecl CInventory::RemoveKCItem(Inven_Item **this);
+bool __cdecl CInventory::RemoveFPItem(CInventory *this, Inven_Item *item);
+bool __cdecl CInventory::RemoveFPItem(Inven_Item **this);
+int __cdecl CInventory::GetExistCreatureSlot(CInventory *this, Inven_Item *item);
+int __cdecl CInventory::GetEmptyCreatureSlot(CInventory *this, Inven_Item *item);
+void __cdecl CInventory::WriteCreatureLog(_DWORD *a1, int id, int value, int count, int index, int type, int result);
+int __cdecl CInventory::insertItemIntoCreatureStackable(CInventory *inventory, __int64 a2, int id, int value, int count, int index, int type, int result, int status, int id2, int value2, int count2, int index2, int type2, int result2, int status2, int id3, char flag);
+int __cdecl CInventory::insertItemIntoCreatureEquipment(CInventory *inventory, __int64 a2);
+int __cdecl CInventory::insertItemIntoArtifactEquipment(CInventory *inventory, __int64 a2, int id, int value, int count, int index, int type, int result, int status, int id2, int value2, int count2, int index2, int type2, int result2, int status2, int id3, char flag);
+int __cdecl CInventory::insertItemIntoCreature(CInventory *inventory, int id, int value, char flag);
+int __cdecl CInventory::tryInsertItemIntoCreature(CInventory *this, Inven_Item *item);
+int __cdecl CInventory::insertCreatureIntoSpecificSlot(_DWORD *a1, __int64 a2, int id, int value, int count, int index, int type, int result, int status, int id2, int value2, int count2, int index2, int type2, int result2, char flag, int status2, int id3, char type3);
+int __cdecl CInventory::makeCheckSum(CInventory *this, int id, int value);
+long double __cdecl CInventory::GetExpertJobCompoundMaterialVariation(int id, int value, int count);
+long double __cdecl CInventory::GetExpertJobCompoundRateVariation(int id, int value, int count);
+void __cdecl CInventory::GetExpertJobCompoundResultVariation(int id, int value, int count, float *a4);
+long double __cdecl CInventory::GetExpertJobSelfDisjointBigWinRate(int id, int value, int count);
+long double __cdecl CInventory::GetExpertJobSelfDisjointResultVariation(int id, int value, int count);
+void __cdecl CInventory::GetExpertJobAddtionalExp(int id, int value, int count, int index);
+int __cdecl CInventory::get_avatar_slot_no(CInventory *this, int id);
+int __cdecl CInventory::get_inven_slot_no(CInventory *this, int id);
+int __cdecl CInventory::getEquipWeaponUpgradeSeparate(CInventory *this);
+_BOOL4 __cdecl CInventory::getValidMoney(CUser **this, int id);
+void __cdecl CInventory::checkEquipmentState(CInventory *this, int id, int value, int *a4, int *a5, int *a6, int *a7, int *a8, int *a9);
+int __cdecl CInventory::GetClearAvatar(CInventory *this, unsigned int id);
+bool __cdecl CInventory::GetClearAvatar(CInventory *this, unsigned int *a2);
+void __cdecl CInventory::CInventory(CInventory *this, const CInventory *inventory);
+
+#endif // __CINVENTORY_H__

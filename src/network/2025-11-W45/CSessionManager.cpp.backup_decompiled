@@ -1,0 +1,86 @@
+// CSessionManager Template Class Implementation
+// Extracted from decompiled source
+// Template instantiation: CSessionManager<CSession, PacketGuard, CEpoll>
+
+#include "network/CSessionManager.h"
+#include "network/CSession.h"
+#include "network/CEpoll.h"
+#include "common/ida_types.h"
+#include <sys/epoll.h>
+
+namespace exchange_server {
+
+void __cdecl exchange_server::CSessionManager<exchange_server::CSession,PacketGuard,exchange_server::CEpoll>::CSessionManager(
+        EpollHandler *a1)
+{
+  exchange_server::CEpoll<exchange_server::CSession>::CEpoll(a1);
+}
+
+void __cdecl exchange_server::CSessionManager<exchange_server::CSession,PacketGuard,exchange_server::CEpoll>::~CSessionManager(
+        EpollHandler *a1)
+{
+  exchange_server::CEpoll<exchange_server::CSession>::~CEpoll(a1);
+}
+
+int __cdecl exchange_server::CSessionManager<exchange_server::CSession,PacketGuard,exchange_server::CEpoll>::WaitForSessionEvent(
+        struct epoll_event *event,
+        int timeout)
+{
+  return exchange_server::CEpoll<exchange_server::CSession>::WaitForEvent(event, timeout);
+}
+
+int __cdecl exchange_server::CSessionManager<exchange_server::CSession,PacketGuard,exchange_server::CEpoll>::TrySend(
+        EpollHandler *a1,
+        exchange_server::CSession *a2,
+        PacketBuf **a3)
+{
+  if ( !exchange_server::CSession::Send(a2, a3) )
+  {
+    exchange_server::CSessionManager<exchange_server::CSession,PacketGuard,exchange_server::CEpoll>::TryDisconnect(
+      a1,
+      a2);
+    return 0;
+  }
+  else
+  {
+    exchange_server::CSession::AddTriggerSessionEventType(a2, 2);
+    return 1;
+  }
+}
+
+int __cdecl exchange_server::CSessionManager<exchange_server::CSession,PacketGuard,exchange_server::CEpoll>::TryConnect(
+        struct epoll_event *event,
+        exchange_server::CSession *a2,
+        char *a3)
+{
+  exchange_server::CSession *v4; // [esp+1Ch] [ebp-Ch]
+
+  v4 = (exchange_server::CSession *)exchange_server::CSession::Connect(a2, a3);
+  if ( !v4 )
+    return 0;
+  if ( !exchange_server::CEpoll<exchange_server::CSession>::RegisterSession(event, v4, 20) )
+    return 0;
+  exchange_server::CSession::AddTriggerSessionEventType(v4, 16);
+  return 1;
+}
+
+bool __cdecl exchange_server::CSessionManager<exchange_server::CSession,PacketGuard,exchange_server::CEpoll>::TryListen(
+        struct epoll_event *event,
+        exchange_server::CSession *a2,
+        char *cp)
+{
+  exchange_server::CSession *v4; // [esp+1Ch] [ebp-Ch]
+
+  v4 = (exchange_server::CSession *)exchange_server::CSession::Listen(a2, cp);
+  return v4 && exchange_server::CEpoll<exchange_server::CSession>::RegisterSession(event, v4, 8);
+}
+
+int __cdecl exchange_server::CSessionManager<exchange_server::CSession,PacketGuard,exchange_server::CEpoll>::TryDisconnect(
+        EpollHandler *a1,
+        exchange_server::CSession *a2)
+{
+  exchange_server::CEpoll<exchange_server::CSession>::UnregisterSession(a1, a2);
+  return exchange_server::CSession::Disconnect(a2);
+}
+
+} // namespace exchange_server
