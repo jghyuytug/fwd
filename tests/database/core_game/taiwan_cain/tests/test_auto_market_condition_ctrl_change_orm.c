@@ -1,0 +1,224 @@
+#include "auto_market_condition_ctrl_change_orm.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
+
+static int test_count = 0;
+static int test_passed = 0;
+static int assertion_count = 0;
+static int assertion_passed = 0;
+static int current_test_failed = 0;
+
+#define TEST_START(name) \
+    do { \
+        if (test_count > 0 && !current_test_failed) { \
+            test_passed++; \
+        } \
+        current_test_failed = 0; \
+        printf("\n[TEST %d] %s\n", ++test_count, name); \
+    } while(0)
+
+#define ASSERT(condition, message) \
+    do { \
+        assertion_count++; \
+        if (condition) { \
+            assertion_passed++; \
+            printf("  ✓ %s\n", message); \
+        } else { \
+            current_test_failed = 1; \
+            printf("  ✗ %s (FAILED)\n", message); \
+        } \
+    } while(0)
+
+#define ASSERT_EQ(a, b, message) \
+    do { \
+        assertion_count++; \
+        if ((a) == (b)) { \
+            assertion_passed++; \
+            printf("  ✓ %s\n", message); \
+        } else { \
+            current_test_failed = 1; \
+            printf("  ✗ %s (FAILED: expected %lld, got %lld)\n", message, (long long)(b), (long long)(a)); \
+        } \
+    } while(0)
+
+void test_add_and_get(DBConnectionManager* manager) {
+    TEST_START("添加和获取变更记录");
+
+    AutoMarketConditionCtrlChange record;
+    memset(&record, 0, sizeof(record));
+    strncpy(record.occ_time, "2025-11-15", sizeof(record.occ_time) - 1);
+    record.total_gold_old = 1000000000ULL;
+    record.over_gold_old = 50000000ULL;
+    record.total_gold_new = 1100000000ULL;
+    record.over_gold_new = 60000000ULL;
+    strncpy(record.MNG_user_id, "admin001", sizeof(record.MNG_user_id) - 1);
+    strncpy(record.memo, "市场调节-增加供应", sizeof(record.memo) - 1);
+
+    int ret = AutoMarketConditionCtrlChange_Add(manager, &record);
+    ASSERT(ret == 0, "添加变更记录成功");
+
+    AutoMarketConditionCtrlChange retrieved;
+    memset(&retrieved, 0, sizeof(retrieved));
+    ret = AutoMarketConditionCtrlChange_Get(manager, "2025-11-15", &retrieved);
+    ASSERT(ret == 0, "获取变更记录成功");
+    ASSERT_EQ(retrieved.total_gold_old, 1000000000ULL, "变更前金币总量正确");
+    ASSERT_EQ(retrieved.total_gold_new, 1100000000ULL, "变更后金币总量正确");
+    ASSERT(strcmp(retrieved.MNG_user_id, "admin001") == 0, "管理员ID正确");
+    ASSERT(strcmp(retrieved.memo, "市场调节-增加供应") == 0, "备注信息正确");
+}
+
+void test_update(DBConnectionManager* manager) {
+    TEST_START("更新变更记录");
+
+    AutoMarketConditionCtrlChange record;
+    AutoMarketConditionCtrlChange_Get(manager, "2025-11-15", &record);
+    record.total_gold_new = 1200000000ULL;
+    strncpy(record.memo, "调整后-最终值", sizeof(record.memo) - 1);
+
+    int ret = AutoMarketConditionCtrlChange_Update(manager, &record);
+    ASSERT(ret == 0, "更新成功");
+
+    AutoMarketConditionCtrlChange retrieved;
+    AutoMarketConditionCtrlChange_Get(manager, "2025-11-15", &retrieved);
+    ASSERT_EQ(retrieved.total_gold_new, 1200000000ULL, "更新后金币总量正确");
+    ASSERT(strcmp(retrieved.memo, "调整后-最终值") == 0, "更新后备注正确");
+}
+
+void test_exists(DBConnectionManager* manager) {
+    TEST_START("检查记录存在性");
+
+    int exists = AutoMarketConditionCtrlChange_Exists(manager, "2025-11-15");
+    ASSERT(exists == 1, "记录存在");
+
+    exists = AutoMarketConditionCtrlChange_Exists(manager, "2099-12-31");
+    ASSERT(exists == 0, "不存在的记录返回0");
+}
+
+void test_record_count(DBConnectionManager* manager) {
+    TEST_START("统计记录数量");
+
+    int count = AutoMarketConditionCtrlChange_Count(manager);
+    ASSERT(count >= 1, "记录数量正确");
+}
+
+void test_get_all(DBConnectionManager* manager) {
+    TEST_START("获取所有变更记录");
+
+    /* 添加多条测试数据 */
+    AutoMarketConditionCtrlChange records[5];
+    const char* dates[] = {"2025-11-10", "2025-11-11", "2025-11-12", "2025-11-13", "2025-11-14"};
+
+    for (int i = 0; i < 5; i++) {
+        memset(&records[i], 0, sizeof(records[i]));
+        strncpy(records[i].occ_time, dates[i], sizeof(records[i].occ_time) - 1);
+        records[i].total_gold_old = 1000000000ULL + i * 10000000ULL;
+        records[i].over_gold_old = 50000000ULL;
+        records[i].total_gold_new = 1100000000ULL + i * 10000000ULL;
+        records[i].over_gold_new = 60000000ULL;
+        sprintf(records[i].MNG_user_id, "admin%03d", i + 1);
+        sprintf(records[i].memo, "第%d次调整", i + 1);
+        AutoMarketConditionCtrlChange_Add(manager, &records[i]);
+    }
+
+    AutoMarketConditionCtrlChange all_records[20];
+    int count = AutoMarketConditionCtrlChange_GetAll(manager, all_records, 20);
+    ASSERT(count >= 5, "获取到至少5条记录");
+}
+
+void test_get_by_date_range(DBConnectionManager* manager) {
+    TEST_START("按日期范围查询");
+
+    AutoMarketConditionCtrlChange records[10];
+    int count = AutoMarketConditionCtrlChange_GetByDateRange(manager, "2025-11-10", "2025-11-12", records, 10);
+    ASSERT(count >= 3, "日期范围内至少有3条记录");
+}
+
+void test_get_by_user(DBConnectionManager* manager) {
+    TEST_START("按管理员查询");
+
+    AutoMarketConditionCtrlChange records[10];
+    int count = AutoMarketConditionCtrlChange_GetByUser(manager, "admin001", records, 10);
+    ASSERT(count >= 1, "查询到管理员的变更记录");
+}
+
+void test_count_recent_changes(DBConnectionManager* manager) {
+    TEST_START("统计最近N天变更次数");
+
+    int count = AutoMarketConditionCtrlChange_CountRecentChanges(manager, 30);
+    ASSERT(count >= 0, "最近30天变更次数统计成功");
+}
+
+void test_delete(DBConnectionManager* manager) {
+    TEST_START("删除变更记录");
+
+    int ret = AutoMarketConditionCtrlChange_Delete(manager, "2025-11-14");
+    ASSERT(ret == 0, "删除成功");
+
+    int exists = AutoMarketConditionCtrlChange_Exists(manager, "2025-11-14");
+    ASSERT(exists == 0, "记录已被删除");
+}
+
+void test_print_info(DBConnectionManager* manager) {
+    TEST_START("打印变更信息");
+
+    AutoMarketConditionCtrlChange record;
+    if (AutoMarketConditionCtrlChange_Get(manager, "2025-11-15", &record) == 0) {
+        AutoMarketConditionCtrlChange_PrintInfo(&record);
+        ASSERT(1, "打印信息成功");
+    }
+}
+
+int main(int argc, char* argv[]) {
+    DBConnectionManager manager;
+
+    if (argc < 2) {
+        fprintf(stderr, "用法: %s <config_file>\n", argv[0]);
+        return 1;
+    }
+
+    printf("\n========================================\n");
+    printf("自动市场条件控制变更记录 ORM 测试\n");
+    printf("========================================\n");
+
+    memset(&manager, 0, sizeof(DBConnectionManager));
+    if (DBConnectionManager_Initialize(&manager, argv[1]) < 0) {
+        fprintf(stderr, "初始化数据库连接管理器失败\n");
+        return 1;
+    }
+
+    if (DBConnectionManager_Connect(&manager, DB_TYPE_CAIN) < 0) {
+        fprintf(stderr, "连接到 taiwan_cain 数据库失败\n");
+        DBConnectionManager_Cleanup(&manager);
+        return 1;
+    }
+
+    test_add_and_get(&manager);
+    test_update(&manager);
+    test_exists(&manager);
+    test_record_count(&manager);
+    test_get_all(&manager);
+    test_get_by_date_range(&manager);
+    test_get_by_user(&manager);
+    test_count_recent_changes(&manager);
+    test_delete(&manager);
+    test_print_info(&manager);
+
+    if (!current_test_failed) {
+        test_passed++;
+    }
+
+    DBConnectionManager_Cleanup(&manager);
+
+    printf("\n========================================\n");
+    printf("测试用例: %d/%d 通过 (%.1f%%)\n",
+           test_passed, test_count,
+           test_count > 0 ? (test_passed * 100.0 / test_count) : 0);
+    printf("断言: %d/%d 通过 (%.1f%%)\n",
+           assertion_passed, assertion_count,
+           assertion_count > 0 ? (assertion_passed * 100.0 / assertion_count) : 0);
+    printf("========================================\n");
+
+    return (test_passed == test_count && assertion_passed == assertion_count) ? 0 : 1;
+}

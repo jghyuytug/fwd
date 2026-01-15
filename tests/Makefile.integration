@@ -1,0 +1,112 @@
+###############################################################################
+# Module Integration Test Makefile
+# Builds and runs integration tests for all modules
+###############################################################################
+
+CC = gcc
+CFLAGS = -m32 -O2 -g -fPIC -pipe -Wall -Wextra
+LDFLAGS = -m32
+INCLUDES = -I../include -I../include/common -I../include/user -I../include/inventory -I../include/events -I../include/database -I../include/network -I../include/security
+
+# Module libraries
+LIBDIR = ../lib
+LIBS = -L$(LIBDIR) -lcommon -lsecurity -ldatabase -lnetwork -luser -linventory -levents -lpthread
+
+# Test executable
+TEST_TARGET = test_modules_integration
+TEST_SOURCE = test_modules_integration.c
+TEST_OBJECT = test_modules_integration.o
+
+# Test results
+TEST_LOG = test_results.log
+
+# Phony targets
+.PHONY: all build run clean verify help
+
+# Default target
+all: build run
+
+# Build test executable
+build: $(TEST_TARGET)
+
+$(TEST_TARGET): $(TEST_SOURCE)
+	@echo "[CC] Compiling integration test..."
+	$(CC) $(CFLAGS) $(INCLUDES) -c $(TEST_SOURCE) -o $(TEST_OBJECT)
+	@echo "[LD] Linking integration test..."
+	$(CC) $(LDFLAGS) -o $@ $(TEST_OBJECT) $(LIBS)
+	@echo "[SUCCESS] Test executable created: $@"
+
+# Run tests
+run: $(TEST_TARGET)
+	@echo "==================================================="
+	@echo "Running Integration Tests"
+	@echo "==================================================="
+	@./$(TEST_TARGET) 2>&1 | tee $(TEST_LOG)
+	@echo ""
+	@echo "Test results saved to: $(TEST_LOG)"
+
+# Verify module libraries exist
+verify:
+	@echo "==================================================="
+	@echo "Verifying Module Libraries"
+	@echo "==================================================="
+	@if [ -f $(LIBDIR)/libcommon.a ]; then \
+		echo "  [OK] libcommon.a"; \
+	else \
+		echo "  [MISSING] libcommon.a"; \
+	fi
+	@if [ -f $(LIBDIR)/libsecurity.a ]; then \
+		echo "  [OK] libsecurity.a"; \
+	else \
+		echo "  [MISSING] libsecurity.a"; \
+	fi
+	@if [ -f $(LIBDIR)/libdatabase.a ]; then \
+		echo "  [OK] libdatabase.a"; \
+	else \
+		echo "  [MISSING] libdatabase.a"; \
+	fi
+	@if [ -f $(LIBDIR)/libnetwork.a ]; then \
+		echo "  [OK] libnetwork.a"; \
+	else \
+		echo "  [MISSING] libnetwork.a"; \
+	fi
+	@if [ -f $(LIBDIR)/libuser.a ]; then \
+		echo "  [OK] libuser.a"; \
+	else \
+		echo "  [MISSING] libuser.a"; \
+	fi
+	@if [ -f $(LIBDIR)/libinventory.a ]; then \
+		echo "  [OK] libinventory.a"; \
+	else \
+		echo "  [MISSING] libinventory.a"; \
+	fi
+	@if [ -f $(LIBDIR)/libevents.a ]; then \
+		echo "  [OK] libevents.a"; \
+	else \
+		echo "  [MISSING] libevents.a"; \
+	fi
+
+# Clean test artifacts
+clean:
+	@echo "[CLEAN] Removing test artifacts..."
+	rm -f $(TEST_OBJECT)
+	rm -f $(TEST_TARGET)
+	rm -f $(TEST_LOG)
+	@echo "[CLEAN] Test cleanup complete"
+
+# Help information
+help:
+	@echo "Module Integration Test Makefile"
+	@echo ""
+	@echo "Available Targets:"
+	@echo "  all       - Build and run tests (default)"
+	@echo "  build     - Build test executable only"
+	@echo "  run       - Run built tests"
+	@echo "  verify    - Verify module libraries exist"
+	@echo "  clean     - Remove test artifacts"
+	@echo "  help      - Show this help message"
+	@echo ""
+	@echo "Usage:"
+	@echo "  make -f Makefile.integration all"
+	@echo "  make -f Makefile.integration verify"
+	@echo "  make -f Makefile.integration clean"

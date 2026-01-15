@@ -1,0 +1,26 @@
+# Simple Ubuntu-based build environment
+# Avoids network issues by using pre-built base
+
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+WORKDIR /game
+
+# Copy project files first (this part can use cache)
+COPY include/ /game/include/
+COPY src/ /game/src/
+COPY Makefile /game/
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    gcc-multilib \
+    g++-multilib \
+    make && \
+    apt-get clean
+
+# Build
+RUN cd /game && make clean && make -j4 all 2>&1 | tee build.log
+
+CMD ["/bin/bash"]

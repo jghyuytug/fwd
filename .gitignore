@@ -56,12 +56,14 @@ docs/
 reports/
 archive/
 backup/
+*.md
 
 # Data and samples
 data/
 pvf_samples/
 pvfut/
 pvfUtility_BackUpPvf/
+deploy/
 server/
 server_code/
 server_configs/
@@ -71,6 +73,18 @@ local_orm/
 mcp_memory_plugin/
 src_split/
 wew332/
+
+# PVF dumps / extracted data
+equ_sample.txt
+pvf_directory_structure.txt
+pvf_file_list.txt
+pvf_full_structure.txt
+test_write.txt
+test_item.equ
+extracted_*.etc
+extracted_*.lst
+extracted_*.stk
+independent_drop_raw.etc
 
 # Secrets / keys / large assets
 *.pvf
@@ -103,6 +117,22 @@ tools/make*
 # PVF test binaries
 src/pvf/test_pvf_manager
 
+# Test outputs / binaries
+tests/outputs/
+tests/network_test
+tests/test_account_cargo_orm
+tests/test_admin_member_orm
+tests/user_fault_recovery_tests
+tests/user_performance_tests
+tests/pvf/test_data_parser
+tests/pvf/test_equipment_parser
+
+# Prototype and backup outputs
+client/prototype/*.txt
+init_framework/*.txt
+src/game_cpp/src/_backup_tmp/
+
 # Workspace metadata
 .agent_memory/
 .claude/
+.mcp.json

@@ -1,0 +1,246 @@
+###############################################################################
+# User Database Module - Unit Tests Makefile
+# Phase 6.1 Week 3 - Testing Configuration
+###############################################################################
+
+# Test executable names
+UNIT_TEST_BINARY = user_database_unit_tests
+INTEGRATION_TEST_BINARY = user_database_integration_tests
+PERFORMANCE_TEST_BINARY = user_performance_tests
+FAULT_RECOVERY_TEST_BINARY = user_fault_recovery_tests
+
+# Build directories
+BUILDROOT = ../build
+LIBROOT = ../lib
+TESTDIR = .
+
+# Compiler configuration (32-bit CentOS 5/7 target)
+CC = gcc
+CFLAGS = -m32 -O0 -g -fPIC -pipe -Wall -Wextra -std=c99 -DDEBUG
+LDFLAGS = -m32
+INCLUDES = -I../include -I../include/common -I../include/user -I../include/database
+
+# Test source files
+UNIT_TEST_SOURCES = $(TESTDIR)/user_database_unit_tests.c
+INTEGRATION_TEST_SOURCES = $(TESTDIR)/user_database_integration_tests.c
+PERFORMANCE_TEST_SOURCES = $(TESTDIR)/user_performance_tests.c
+FAULT_RECOVERY_TEST_SOURCES = $(TESTDIR)/user_fault_recovery_tests.c
+
+# Required libraries (in dependency order)
+LIBS = \
+	$(LIBROOT)/libuser.a \
+	$(LIBROOT)/libdatabase.a \
+	$(LIBROOT)/libcommon.a
+
+# External library dependencies
+LDLIBS = -lmysqlclient -lpthread -lrt -ldl -lm
+
+# Phony targets
+.PHONY: all clean run test unit integration performance fault-recovery all-tests help
+
+# Default target: build all test binaries
+all: unit integration performance fault-recovery
+
+# Build unit test executable
+unit: $(UNIT_TEST_BINARY)
+
+$(UNIT_TEST_BINARY): $(UNIT_TEST_SOURCES) $(LIBS)
+	@echo "╔═══════════════════════════════════════════════════════╗"
+	@echo "║  Building User Database Unit Tests                   ║"
+	@echo "╚═══════════════════════════════════════════════════════╝"
+	@echo "[CC] Compiling test: $<"
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $< $(LIBS) $(LDLIBS)
+	@echo "��� Unit test binary built successfully: $(UNIT_TEST_BINARY)"
+	@echo ""
+
+# Build integration test executable
+integration: $(INTEGRATION_TEST_BINARY)
+
+$(INTEGRATION_TEST_BINARY): $(INTEGRATION_TEST_SOURCES) $(LIBS)
+	@echo "╔═══════════════════════════════════════════════════════╗"
+	@echo "║  Building User Database Integration Tests            ║"
+	@echo "╚═══════════════════════════════════════════════════════╝"
+	@echo "[CC] Compiling test: $<"
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $< $(LIBS) $(LDLIBS)
+	@echo "✓ Integration test binary built successfully: $(INTEGRATION_TEST_BINARY)"
+	@echo ""
+
+# Build performance test executable
+performance: $(PERFORMANCE_TEST_BINARY)
+
+$(PERFORMANCE_TEST_BINARY): $(PERFORMANCE_TEST_SOURCES)
+	@echo "╔═══════════════════════════════════════════════════════╗"
+	@echo "║  Building User Module Performance Tests              ║"
+	@echo "╚═══════════════════════════════════════════════════════╝"
+	@echo "[CC] Compiling test: $<"
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $< -lpthread -lrt -ldl -lm
+	@echo "✓ Performance test binary built successfully: $(PERFORMANCE_TEST_BINARY)"
+	@echo ""
+
+# Build fault recovery test executable
+fault-recovery: $(FAULT_RECOVERY_TEST_BINARY)
+
+$(FAULT_RECOVERY_TEST_BINARY): $(FAULT_RECOVERY_TEST_SOURCES)
+	@echo "╔═══════════════════════════════════════════════════════╗"
+	@echo "║  Building User Module Fault Recovery Tests           ║"
+	@echo "╚═══════════════════════════════════════════════════════╝"
+	@echo "[CC] Compiling test: $<"
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $< -lpthread -lrt -ldl -lm
+	@echo "✓ Fault recovery test binary built successfully: $(FAULT_RECOVERY_TEST_BINARY)"
+	@echo ""
+
+# Run unit tests
+run-unit: $(UNIT_TEST_BINARY)
+	@echo "╔═══════════════════════════════════════════════════════╗"
+	@echo "║  Running User Database Unit Tests                    ║"
+	@echo "╚═══════════════════════════════════════════════════════╝"
+	@echo ""
+	./$(UNIT_TEST_BINARY)
+	@echo ""
+
+# Run integration tests
+run-integration: $(INTEGRATION_TEST_BINARY)
+	@echo "╔═══════════════════════════════════════════════════════╗"
+	@echo "║  Running User Database Integration Tests             ║"
+	@echo "╚═══════════════════════════════════════════════════════╝"
+	@echo ""
+	./$(INTEGRATION_TEST_BINARY)
+	@echo ""
+
+# Run performance tests
+run-performance: $(PERFORMANCE_TEST_BINARY)
+	@echo "╔═══════════════════════════════════════════════════════╗"
+	@echo "║  Running User Module Performance Tests               ║"
+	@echo "╚═══════════════════════════════════════════════════════╝"
+	@echo ""
+	./$(PERFORMANCE_TEST_BINARY)
+	@echo ""
+
+# Run fault recovery tests
+run-fault-recovery: $(FAULT_RECOVERY_TEST_BINARY)
+	@echo "╔═══════════════════════════════════════════════════════╗"
+	@echo "║  Running User Module Fault Recovery Tests            ║"
+	@echo "╚═══════════════════════════════════════════════════════╝"
+	@echo ""
+	./$(FAULT_RECOVERY_TEST_BINARY)
+	@echo ""
+
+# Run all tests sequentially
+all-tests: run-unit run-integration run-performance run-fault-recovery
+	@echo ""
+	@echo "╔═══════════════════════════════════════════════════════╗"
+	@echo "║  ALL TESTS COMPLETED                                  ║"
+	@echo "╚═══════════════════════════════════════════════════════╝"
+
+# Aliases
+run: run-unit
+test: all-tests
+
+# Verify test environment
+verify:
+	@echo "=== User Database Test Environment Verification ==="
+	@echo "Unit Test Binary: $(UNIT_TEST_BINARY)"
+	@echo "Integration Test Binary: $(INTEGRATION_TEST_BINARY)"
+	@echo "Test Sources:"
+	@echo "  - $(UNIT_TEST_SOURCES)"
+	@echo "  - $(INTEGRATION_TEST_SOURCES)"
+	@echo ""
+	@echo "Required Libraries:"
+	@for lib in $(LIBS); do \
+		if [ -f $$lib ]; then \
+			echo "  ✓ $$lib (exists)"; \
+		else \
+			echo "  ✗ $$lib (MISSING)"; \
+		fi; \
+	done
+	@echo ""
+	@echo "Compiler: $(CC) $(CFLAGS)"
+	@echo "Includes: $(INCLUDES)"
+	@echo "Link Libraries: $(LDLIBS)"
+	@echo ""
+	@echo "Database Configuration:"
+	@if [ -f ../config/database.cfg ]; then \
+		echo "  ✓ ../config/database.cfg (exists)"; \
+	else \
+		echo "  ✗ ../config/database.cfg (MISSING)"; \
+	fi
+
+# Build required libraries if missing
+build-libs:
+	@echo "Building required libraries..."
+	@if [ ! -f $(LIBROOT)/libcommon.a ]; then \
+		echo "Building libcommon.a..."; \
+		$(MAKE) -C ../src/common all; \
+	fi
+	@if [ ! -f $(LIBROOT)/libdatabase.a ]; then \
+		echo "Building libdatabase.a..."; \
+		$(MAKE) -C ../src/database all; \
+	fi
+	@if [ ! -f $(LIBROOT)/libuser.a ]; then \
+		echo "Building libuser.a..."; \
+		$(MAKE) -C ../src/user all; \
+	fi
+	@echo "✓ All required libraries built"
+
+# Full build: libraries + tests
+full: build-libs all
+
+# Clean test artifacts
+clean:
+	@echo "[CLEAN] Removing test artifacts..."
+	rm -f $(UNIT_TEST_BINARY)
+	rm -f $(INTEGRATION_TEST_BINARY)
+	rm -f $(PERFORMANCE_TEST_BINARY)
+	rm -f $(FAULT_RECOVERY_TEST_BINARY)
+	rm -f *.o
+	@echo "[CLEAN] Test cleanup complete"
+
+# Help information
+help:
+	@echo "User Database Module Tests - Build Targets:"
+	@echo ""
+	@echo "Building:"
+	@echo "  make all             - Build all tests (unit + integration)"
+	@echo "  make unit            - Build unit tests only"
+	@echo "  make integration     - Build integration tests only"
+	@echo ""
+	@echo "Running:"
+	@echo "  make test            - Run all tests (unit + integration)"
+	@echo "  make run-unit        - Run unit tests only"
+	@echo "  make run-integration - Run integration tests only"
+	@echo "  make run             - Alias for run-unit"
+	@echo ""
+	@echo "Utilities:"
+	@echo "  make verify          - Verify test environment"
+	@echo "  make build-libs      - Build all required libraries"
+	@echo "  make full            - Build libraries + all tests"
+	@echo "  make clean           - Remove test artifacts"
+	@echo "  make help            - Show this help message"
+	@echo ""
+	@echo "Test Coverage:"
+	@echo ""
+	@echo "  Unit Tests ($(UNIT_TEST_BINARY)):"
+	@echo "    - Account CRUD operations (4 functions)"
+	@echo "    - Character CRUD operations (5 functions)"
+	@echo "    - Session CRUD operations (3 functions)"
+	@echo "    - Stored procedure calls (1 function)"
+	@echo "    - Error handling and edge cases"
+	@echo ""
+	@echo "  Integration Tests ($(INTEGRATION_TEST_BINARY)):"
+	@echo "    - Complete user registration flow"
+	@echo "    - Multi-character account management"
+	@echo "    - Session lifecycle management"
+	@echo "    - Account state transitions"
+	@echo "    - Data consistency across operations"
+	@echo ""
+	@echo "Prerequisites:"
+	@echo "  - MySQL server running and accessible"
+	@echo "  - Database configuration file: ../config/database.cfg"
+	@echo "  - Test database with proper schema"
+	@echo "  - All required libraries compiled"
+	@echo ""
+	@echo "Example Usage:"
+	@echo "  make full            # Build everything and prepare for testing"
+	@echo "  make verify          # Check if environment is ready"
+	@echo "  make test            # Run all tests"
+	@echo "  make run-unit        # Run only unit tests"
