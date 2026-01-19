@@ -512,7 +512,13 @@ void PVFData_PrintDetailed(const PVFDataGeneric* data) {
                 printf("ref:0x%08x\n", entry->value.ref_value);
                 break;
             case PVF_VALUE_TYPE_KV:
-                printf("kv:{0x%x, 0x%x}\n", entry->value.kv.sub_key, entry->value.kv.sub_value);
+                printf("kv:nested_key=0x%x\n", entry->value.kv.nested_key);
+                break;
+            case PVF_VALUE_TYPE_FLOAT:
+                printf("%f\n", entry->value.float_value);
+                break;
+            case PVF_VALUE_TYPE_STRING:
+                printf("\"%s\"\n", entry->value.str.str ? entry->value.str.str : "");
                 break;
             default:
                 printf("(type 0x%02x)\n", entry->type);

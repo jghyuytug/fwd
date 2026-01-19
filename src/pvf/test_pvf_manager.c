@@ -10,6 +10,7 @@
 #include <string.h>
 
 #include "pvf_manager.h"
+#include "pvf/parsers/skill_parser.h"
 
 int main(int argc, char* argv[])
 {
@@ -17,6 +18,7 @@ int main(int argc, char* argv[])
     int i;
     const char* pvf_path = "../../Script.pvf";
     const char* stringtable_path = "../../stringtable.bin";
+    const char* skill_file = NULL;
 
     /* 使用命令行参数覆盖默认路径 */
     if (argc >= 2) {
@@ -24,6 +26,9 @@ int main(int argc, char* argv[])
     }
     if (argc >= 3) {
         stringtable_path = argv[2];
+    }
+    if (argc >= 4) {
+        skill_file = argv[3];
     }
 
     printf("=== PVF Manager Integration Test ===\n\n");
@@ -99,6 +104,31 @@ int main(int argc, char* argv[])
     ret = PVF_Manager_GetTag(0x00002ca5, tag, sizeof(tag));  /* [name] */
     if (ret > 0) {
         printf("    Tag 0x2ca5: %s\n", tag);
+    }
+    printf("\n");
+
+    /* 测试SKL解析 */
+    printf("[6b] Testing .skl parsing...\n");
+    if (skill_file == NULL) {
+        skill_file = "skill/gunner/basichpmaxup.skl";
+    }
+    printf("    Target skill file: %s\n", skill_file);
+
+    data = NULL;
+    size = 0;
+    ret = PVF_Manager_ReadFile(skill_file, &data, &size);
+    if (ret == PVF_MGR_SUCCESS) {
+        SkillData skl;
+        ret = Skill_Parse(&skl, data, size);
+        if (ret == PVF_SUCCESS) {
+            Skill_Print(&skl);
+            Skill_Free(&skl);
+        } else {
+            printf("    [FAIL] Skill_Parse failed: %d\n", ret);
+        }
+        free(data);
+    } else {
+        printf("    [FAIL] PVF_Manager_ReadFile failed: %d\n", ret);
     }
     printf("\n");
 

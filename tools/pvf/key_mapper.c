@@ -92,9 +92,16 @@ int main(int argc, char* argv[]) {
                 break;
 
             case PVF_VALUE_TYPE_KV:
-                printf("KV:{0x%X, 0x%X}\n",
-                       e->value.kv.sub_key,
-                       e->value.kv.sub_value);
+                printf("KV:nested_key=0x%X\n",
+                       e->value.kv.nested_key);
+                break;
+
+            case PVF_VALUE_TYPE_FLOAT:
+                printf("%f\n", e->value.float_value);
+                break;
+
+            case PVF_VALUE_TYPE_STRING:
+                printf("\"%s\"\n", e->value.str.str ? e->value.str.str : "");
                 break;
 
             default:

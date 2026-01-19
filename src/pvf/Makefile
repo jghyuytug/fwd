@@ -13,7 +13,7 @@ LIB_DIR = ../lib
 # 源文件
 CORE_SRCS = pvf_crc32.c pvf_decrypt.c pvf_hash.c pvf_parser.c \
             pvf_packset.c pvf_stringtable.c pvf_data_parser.c pvf_manager.c
-PARSER_SRCS = parsers/parser_common.c parsers/equipment_parser.c
+PARSER_SRCS = parsers/parser_common.c parsers/equipment_parser.c parsers/skill_parser.c
 
 ALL_SRCS = $(CORE_SRCS) $(PARSER_SRCS)
 
