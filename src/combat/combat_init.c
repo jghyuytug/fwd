@@ -5,6 +5,10 @@
  */
 
 #include "combat_interface.h"
+#include "combat_damage.h"
+#include "combat_log.h"
+#include <config/game_config.h>
+#include <user/user_interface_v2.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -49,6 +53,51 @@ static struct {
         unsigned int total_buffs_applied;
     } stats;
 } g_combat_state = {0};
+
+static void FillCombatDataFromCharacter(const Character* character, CharacterCombatData* out_data)
+{
+    memset(out_data, 0, sizeof(*out_data));
+    if (!character) {
+        return;
+    }
+
+    out_data->character_id = (int)character->character_id;
+    out_data->level = (int)character->level;
+    out_data->job_class = (int)character->job_class;
+
+    out_data->strength = (int)character->attributes.strength;
+    out_data->intelligence = (int)character->attributes.intelligence;
+    out_data->vitality = (int)character->attributes.vitality;
+    out_data->spirit = (int)character->attributes.spirit;
+
+    out_data->physical_attack = (int)character->attributes.physical_attack;
+    out_data->magical_attack = (int)character->attributes.magical_attack;
+    out_data->physical_defense = (int)character->attributes.physical_defense;
+    out_data->magical_defense = (int)character->attributes.magical_defense;
+
+    out_data->hp = (int)character->attributes.current_hp;
+    out_data->max_hp = (int)character->attributes.max_hp;
+    out_data->mp = (int)character->attributes.current_mp;
+    out_data->max_mp = (int)character->attributes.max_mp;
+
+    out_data->move_speed = (int)character->attributes.move_speed;
+    out_data->attack_speed = (int)character->attributes.attack_speed;
+
+    /* Convert user-module floats to combat-engine integer percentages. */
+    int critical_rate_pct = (int)(character->attributes.critical_rate * 100.0f);
+    if (critical_rate_pct < 0) critical_rate_pct = 0;
+    if (critical_rate_pct > 100) critical_rate_pct = 100;
+    out_data->critical_rate = critical_rate_pct;
+
+    float critical_multiplier = character->attributes.critical_damage;
+    int critical_bonus_pct = (int)((critical_multiplier - 1.0f) * 100.0f);
+    if (critical_bonus_pct < 0) critical_bonus_pct = 0;
+    out_data->critical_damage = critical_bonus_pct;
+
+    const CharacterGrowthConfig* growth = CombatConfig_GetCharacterGrowth(out_data->job_class);
+    out_data->accuracy = growth ? growth->base_accuracy : 0;
+    out_data->evasion = growth ? growth->base_evasion : 0;
+}
 
 /**
  * Initialize Combat Module
@@ -106,6 +155,18 @@ int Combat_Initialize(int max_active_combats, int max_status_effects)
     g_combat_state.next_buff_id = 1;
     g_combat_state.initialized = 1;
 
+    /* Initialize combat subsystems (formula, logging). */
+    if (CombatDamage_Initialize() != 0) {
+        fprintf(stderr, "[Combat] Failed to initialize damage calculator\n");
+        Combat_Cleanup();
+        return ERR_FAILURE;
+    }
+    if (CombatLog_Initialize() != 0) {
+        fprintf(stderr, "[Combat] Failed to initialize combat log\n");
+        Combat_Cleanup();
+        return ERR_FAILURE;
+    }
+
     printf("[Combat] Module initialized. Max combats: %d, Max effects: %d\n",
            max_active_combats, max_status_effects);
 
@@ -136,13 +197,16 @@ void Combat_Cleanup()
     free(g_combat_state.status_effects);
     free(g_combat_state.encounters);
 
+    CombatLog_Cleanup();
+    CombatDamage_Cleanup();
+
     memset(&g_combat_state, 0, sizeof(g_combat_state));
 
     printf("[Combat] Module cleanup complete\n");
 }
 
 /**
- * Calculate Damage (Stub implementation)
+ * Calculate Damage (Modular combat engine)
  */
 int Combat_CalculateDamage(unsigned int attacker_id,
                            unsigned int defender_id,
@@ -158,21 +222,41 @@ int Combat_CalculateDamage(unsigned int attacker_id,
         return ERR_INVALID_PARAMETER;
     }
 
-    // Stub: Simple damage calculation
-    result->damage_amount = base_damage;
+    memset(result, 0, sizeof(*result));
     result->damage_type = damage_type;
-    result->is_critical = 0;
-    result->is_blocked = 0;
-    result->is_dodged = 0;
-    result->is_missed = 0;
 
-    // 10% critical hit chance
-    if ((rand() % 100) < 10) {
-        result->is_critical = 1;
-        result->damage_amount *= 2;
+    CharacterCombatData attacker_data;
+    CharacterCombatData defender_data;
+    memset(&attacker_data, 0, sizeof(attacker_data));
+    memset(&defender_data, 0, sizeof(defender_data));
+
+    Character* attacker_character = NULL;
+    Character* defender_character = NULL;
+    (void)User_GetCharacterByID((uint32_t)attacker_id, &attacker_character);
+    (void)User_GetCharacterByID((uint32_t)defender_id, &defender_character);
+    FillCombatDataFromCharacter(attacker_character, &attacker_data);
+    FillCombatDataFromCharacter(defender_character, &defender_data);
+
+    SkillCombatData skill = {0};
+    skill.base_damage = base_damage;
+    skill.damage_multiplier = 0;
+    skill.skill_type = (damage_type == DAMAGE_TYPE_PHYSICAL) ? 0 : 1;
+
+    CombatDamageResult dmg = {0};
+    int ret = CombatDamage_CalculateFinal(&attacker_data, &defender_data, &skill, &dmg);
+    if (ret != 0) {
+        result->damage_amount = 0;
+        result->is_missed = 1;
+        return ERR_FAILURE;
     }
 
+    result->damage_amount = dmg.final_damage;
+    result->is_critical = dmg.is_critical ? 1 : 0;
+    result->is_dodged = dmg.is_evaded ? 1 : 0;
+
     g_combat_state.stats.total_damage_calculated++;
+
+    (void)CombatLog_LogAttack((int)attacker_id, (int)defender_id, 0, result->damage_amount, result->is_critical != 0);
 
     return ERR_SUCCESS;
 }
