@@ -56,7 +56,6 @@ docs/
 reports/
 archive/
 backup/
-*.md
 
 # Data and samples
 data/
@@ -88,6 +87,8 @@ independent_drop_raw.etc
 
 # Secrets / keys / large assets
 *.pvf
+*.npk
+*.NPK
 *.bin
 *.dat
 *.mhe
@@ -96,6 +97,12 @@ independent_drop_raw.etc
 *.pem
 *.db
 *.ppm
+
+# Local client assets (do not commit)
+ImagePacks2/
+imagepacks2/
+ImagePacks/
+imagepacks/
 
 # Client prototype data assets
 client/prototype/**/*.ani
