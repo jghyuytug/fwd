@@ -133,10 +133,10 @@ int PVFDataIterator_Next(PVFDataIterator* iter, PVFDataEntry* entry) {
             return PVF_SUCCESS;
 
         case PVF_TYPE_REFERENCE:
-            if (iter->position + 2 > iter->size) goto parse_failed;
+            if (iter->position + 4 > iter->size) goto parse_failed;
             entry->key = 0;
             entry->type = PVF_VALUE_TYPE_REFERENCE;
-            entry->value.ref_value = (uint32_t)read_u16(iter->data, &iter->position);
+            entry->value.ref_value = read_u32(iter->data, &iter->position);
             return PVF_SUCCESS;
 
         case PVF_TYPE_STRING: {
@@ -179,9 +179,9 @@ int PVFDataIterator_Next(PVFDataIterator* iter, PVFDataEntry* entry) {
                     return PVF_SUCCESS;
 
                 case PVF_TYPE_REFERENCE:
-                    if (iter->position + 2 > iter->size) goto parse_failed;
+                    if (iter->position + 4 > iter->size) goto parse_failed;
                     entry->type = PVF_VALUE_TYPE_REFERENCE;
-                    entry->value.ref_value = (uint32_t)read_u16(iter->data, &iter->position);
+                    entry->value.ref_value = read_u32(iter->data, &iter->position);
                     return PVF_SUCCESS;
 
                 case PVF_TYPE_KEY_VALUE_PAIR:
