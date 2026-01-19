@@ -44,6 +44,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <ctype.h>
 
 /* PVF library includes */
 #include "pvf/pvf.h"
@@ -78,6 +79,11 @@ static uint16_t read_u16(const uint8_t* p)
 static int16_t read_i16(const uint8_t* p)
 {
     return (int16_t)read_u16(p);
+}
+
+static int32_t read_i32(const uint8_t* p)
+{
+    return (int32_t)read_u32(p);
 }
 
 /**
@@ -195,12 +201,115 @@ static int parse_frame(const uint8_t* data, size_t size, ANIFrame* frame)
 }
 
 /**
+ * @brief Parse event data
+ */
+static int parse_event(const uint8_t* data, size_t size, ANIEvent* event)
+{
+    const uint8_t* p = data;
+
+    if (size < 8) {
+        return -1;
+    }
+
+    memset(event, 0, sizeof(ANIEvent));
+
+    /* Event type */
+    event->type = (ANIEventType)read_u32(p);
+    p += 4;
+
+    /* Frame to trigger */
+    event->frame = (int)read_u32(p);
+    p += 4;
+
+    /* Parse type-specific data */
+    switch (event->type) {
+        case EVENT_SOUND:
+            if (size >= 8 + 64 + 4 + 1) {
+                read_string(p, event->data.sound.path, 64);
+                p += 64;
+                /* Volume as fixed-point (0-100 -> 0.0-1.0) */
+                event->data.sound.volume = (float)read_u32(p) / 100.0f;
+                p += 4;
+                event->data.sound.loop = (*p++ != 0);
+            }
+            break;
+
+        case EVENT_EFFECT:
+            if (size >= 8 + 64 + 8 + 1) {
+                read_string(p, event->data.effect.path, 64);
+                p += 64;
+                event->data.effect.offset_x = read_i32(p);
+                p += 4;
+                event->data.effect.offset_y = read_i32(p);
+                p += 4;
+                event->data.effect.follow = (*p++ != 0);
+            }
+            break;
+
+        case EVENT_PROJECTILE:
+            if (size >= 8 + 64 + 20) {
+                read_string(p, event->data.projectile.path, 64);
+                p += 64;
+                event->data.projectile.offset_x = read_i32(p);
+                p += 4;
+                event->data.projectile.offset_y = read_i32(p);
+                p += 4;
+                event->data.projectile.velocity_x = read_i32(p);
+                p += 4;
+                event->data.projectile.velocity_y = read_i32(p);
+                p += 4;
+                event->data.projectile.damage = read_i32(p);
+                p += 4;
+            }
+            break;
+
+        case EVENT_MOVE:
+            if (size >= 8 + 8) {
+                event->data.move.delta_x = read_i32(p);
+                p += 4;
+                event->data.move.delta_y = read_i32(p);
+                p += 4;
+            }
+            break;
+
+        case EVENT_CANCEL:
+            if (size >= 8 + 8) {
+                event->data.cancel.cancel_window = read_i32(p);
+                p += 4;
+                event->data.cancel.allowed_actions = read_i32(p);
+                p += 4;
+            }
+            break;
+
+        case EVENT_LOOP:
+            if (size >= 8 + 8) {
+                event->data.loop.target_frame = read_i32(p);
+                p += 4;
+                event->data.loop.loop_count = read_i32(p);
+                p += 4;
+            }
+            break;
+
+        case EVENT_DAMAGE:
+        case EVENT_GRAB:
+        case EVENT_END:
+        case EVENT_NONE:
+        default:
+            /* No additional data */
+            break;
+    }
+
+    return (int)(p - data);
+}
+
+/**
  * @brief Parse action data
  */
 static int parse_action(const uint8_t* data, size_t size, ANIAction* action)
 {
     const uint8_t* p = data;
     uint32_t frame_count;
+    uint32_t event_count;
     int i;
 
     if (size < 0x18C) {
@@ -261,7 +370,254 @@ static int parse_action(const uint8_t* data, size_t size, ANIAction* action)
         }
     }
 
+    /* Parse events (if present) */
+    if ((size_t)(p - data) + 4 <= size) {
+        event_count = read_u32(p);
+        p += 4;
+
+        if (event_count > 0 && event_count <= ANI_MAX_EVENTS) {
+            action->events = (ANIEvent*)calloc(event_count, sizeof(ANIEvent));
+            if (action->events != NULL) {
+                action->event_count = 0;
+                for (i = 0; i < (int)event_count; i++) {
+                    int consumed = parse_event(p, size - (p - data), &action->events[i]);
+                    if (consumed < 0) {
+                        break;
+                    }
+                    action->event_count++;
+                    p += consumed;
+                }
+            }
+        }
+    }
+
     return (int)(p - data);
+}
+
+static void normalize_slashes(char* s)
+{
+    if (s == NULL) return;
+    for (; *s; s++) {
+        if (*s == '\\') *s = '/';
+    }
+}
+
+static int starts_with_ci(const char* s, const char* prefix)
+{
+    size_t i = 0;
+    if (s == NULL || prefix == NULL) return 0;
+    while (prefix[i] != '\0') {
+        unsigned char a = (unsigned char)s[i];
+        unsigned char b = (unsigned char)prefix[i];
+        if (a == '\0') return 0;
+        if ((unsigned char)tolower(a) != (unsigned char)tolower(b)) return 0;
+        i++;
+    }
+    return 1;
+}
+
+static void normalize_img_path_to_npk(char* s, size_t s_size)
+{
+    char tmp[ANI_MAX_IMG_PATH];
+    size_t i, n;
+
+    if (s == NULL || s_size == 0) return;
+
+    snprintf(tmp, sizeof(tmp), "%s", s);
+    normalize_slashes(tmp);
+
+    /* Trim leading spaces */
+    while (tmp[0] == ' ') {
+        memmove(tmp, tmp + 1, strlen(tmp));
+    }
+
+    /* Lowercase + normalize slashes */
+    n = strlen(tmp);
+    for (i = 0; i < n; i++) {
+        unsigned char c = (unsigned char)tmp[i];
+        if (c == '\\') c = '/';
+        tmp[i] = (char)tolower(c);
+    }
+
+    /* Many PVF .ani references omit the "sprite/" prefix used inside NPKs. */
+    if (!starts_with_ci(tmp, "sprite/")) {
+        if (snprintf(s, s_size, "sprite/%s", tmp) >= (int)s_size) {
+            s[0] = '\0';
+            return;
+        }
+    } else {
+        snprintf(s, s_size, "%s", tmp);
+    }
+}
+
+static int clamp_i32_to_i16(int32_t v)
+{
+    if (v > 32767) return 32767;
+    if (v < -32768) return -32768;
+    return (int16_t)v;
+}
+
+static int ANI_LoadCompactFromMemory(const void* data, size_t size, ANIDefinition** out_def)
+{
+    const uint8_t* p = (const uint8_t*)data;
+    ANIDefinition* def = NULL;
+    ANIAction* action = NULL;
+    uint16_t frame_count_u16;
+    uint32_t img_len;
+    size_t pos;
+
+    if (data == NULL || out_def == NULL || size < 8) {
+        return ANI_ERROR_INVALID;
+    }
+
+    frame_count_u16 = read_u16(p + 0);
+    img_len = read_u32(p + 4);
+
+    if (img_len == 0 || img_len > 4096 || (size_t)8 + (size_t)img_len > size) {
+        return ANI_ERROR_PARSE;
+    }
+
+    /* Allocate definition with a single action */
+    def = (ANIDefinition*)calloc(1, sizeof(ANIDefinition));
+    if (def == NULL) {
+        return ANI_ERROR_MEMORY;
+    }
+
+    def->version = 0;
+    def->action_count = 1;
+    def->default_action = 0;
+    def->ref_count = 1;
+
+    def->actions = (ANIAction*)calloc(1, sizeof(ANIAction));
+    if (def->actions == NULL) {
+        free(def);
+        return ANI_ERROR_MEMORY;
+    }
+
+    action = &def->actions[0];
+    strncpy(action->name, "default", sizeof(action->name) - 1);
+    action->id = 0;
+    action->loop = true;
+    action->loop_start = 0;
+    action->speed = 1.0f;
+
+    /* Default IMG path (these .ani commonly reference a single .img) */
+    {
+        size_t to_copy = img_len;
+        if (to_copy >= sizeof(action->img_path)) {
+            to_copy = sizeof(action->img_path) - 1;
+        }
+        memcpy(action->img_path, p + 8, to_copy);
+        action->img_path[to_copy] = '\0';
+        normalize_img_path_to_npk(action->img_path, sizeof(action->img_path));
+    }
+
+    /* Frames */
+    if (frame_count_u16 > ANI_MAX_FRAMES) {
+        frame_count_u16 = ANI_MAX_FRAMES;
+    }
+    action->frame_count = (int)frame_count_u16;
+
+    if (action->frame_count > 0) {
+        action->frames = (ANIFrame*)calloc((size_t)action->frame_count, sizeof(ANIFrame));
+        if (action->frames == NULL) {
+            ANI_FreeDefinition(def);
+            return ANI_ERROR_MEMORY;
+        }
+    }
+
+    /* Compact frame record parsing (observed in PVF .ani files):
+     *   u16 frame_count
+     *   u16 version(?)
+     *   u32 img_path_len
+     *   char img_path[img_path_len]
+     *   u16 unknown_a
+     *   u16 unknown_b
+     *   u32 unknown_c
+     *   repeat frame_count times:
+     *     u8  pad0
+     *     u16 frame_id
+     *     i32 offset_x
+     *     i32 offset_y
+     *     u16 unk1
+     *     u16 unk2
+     *     u16 unk3
+     *     u16 unk4
+     *     u16 duration
+     *     u32 unk5
+     *     u8  pad1
+     */
+    pos = 8 + (size_t)img_len;
+
+    if (pos + 8 > size) {
+        *out_def = def;
+        return ANI_SUCCESS;
+    }
+
+    pos += 2; /* unknown_a */
+    pos += 2; /* unknown_b */
+    pos += 4; /* unknown_c */
+
+    for (int fi = 0; fi < action->frame_count; fi++) {
+        ANIFrame* f = &action->frames[fi];
+
+        /* Defaults */
+        f->img_path[0] = '\0';
+        f->img_index = fi;
+        f->duration = 100;
+        f->delay = 0;
+        f->offset.x = 0;
+        f->offset.y = 0;
+        f->anchor.x = 0;
+        f->anchor.y = 0;
+        f->scale_x = 1.0f;
+        f->scale_y = 1.0f;
+        f->rotation = 0.0f;
+        f->alpha = 255;
+        f->blend = 0;
+        f->hitbox_count = 0;
+        f->is_key_frame = false;
+        f->can_cancel = false;
+        f->is_loop_point = false;
+        f->flip_x = false;
+        f->flip_y = false;
+
+        /* Minimum bytes to parse up to duration: 1 + 2 + 4 + 4 + (u16*4) + 2 = 21 */
+        if (pos + 21 > size) {
+            break;
+        }
+
+        pos += 1; /* pad0 */
+        uint16_t frame_id = read_u16(p + pos);
+        pos += 2;
+
+        int32_t ox = read_i32(p + pos);
+        pos += 4;
+        int32_t oy = read_i32(p + pos);
+        pos += 4;
+
+        /* Skip 4 unknown u16 values */
+        pos += 2 * 4;
+
+        uint16_t duration = read_u16(p + pos);
+        pos += 2;
+
+        /* Optional tail (often 5 bytes: u32 0 + u8 0). Some files end with a short trailer. */
+        if (size - pos >= 5) {
+            pos += 4; /* unk5 */
+            pos += 1; /* pad1 */
+        } else {
+            /* Leave remaining bytes (likely trailer) */
+        }
+
+        f->img_index = (int)frame_id;
+        f->offset.x = clamp_i32_to_i16(ox);
+        f->offset.y = clamp_i32_to_i16(oy);
+        f->duration = duration;
+    }
+
+    *out_def = def;
+    return ANI_SUCCESS;
 }
 
 /* ========================================================================== */
@@ -276,7 +632,7 @@ int ANI_LoadFromMemory(const void* data, size_t size, ANIDefinition** out_def)
     uint32_t action_count;
     int i;
 
-    if (data == NULL || size < 0x4C || out_def == NULL) {
+    if (data == NULL || out_def == NULL || size < 8) {
         return ANI_ERROR_INVALID;
     }
 
@@ -287,11 +643,16 @@ int ANI_LoadFromMemory(const void* data, size_t size, ANIDefinition** out_def)
     if (magic != ANI_MAGIC_V1 && magic != ANI_MAGIC_V2) {
         /* Try alternate text magic */
         if (strncmp((const char*)p, ANI_MAGIC, 10) != 0) {
-            return ANI_ERROR_INVALID_MAGIC;
+            /* Try compact PVF .ani format (no "ANI1"/"ANI2" magic) */
+            return ANI_LoadCompactFromMemory(data, size, out_def);
         }
         magic = ANI_MAGIC_V1;
     }
     p += 4;
+
+    if (size < 0x4C) {
+        return ANI_ERROR_PARSE;
+    }
 
     /* Allocate definition */
     def = (ANIDefinition*)calloc(1, sizeof(ANIDefinition));
@@ -376,22 +737,34 @@ int ANI_LoadFromMemory(const void* data, size_t size, ANIDefinition** out_def)
 int ANI_LoadFromPVF(PackSetInternal* pvf, const char* ani_path,
                     ANIDefinition** out_def)
 {
+    PVFIndexEntry* entry;
     void* buffer = NULL;
-    size_t size;
     int result;
 
     if (pvf == NULL || ani_path == NULL || out_def == NULL) {
         return ANI_ERROR_INVALID;
     }
 
-    /* Get file from PVF */
-    result = PackSet_GetFile(pvf, ani_path, &buffer, &size);
-    if (result != 0 || buffer == NULL) {
+    /* Find file in PVF */
+    entry = PackSet_GetFile(pvf, ani_path);
+    if (entry == NULL || entry->size == 0) {
         return ANI_ERROR_NOT_FOUND;
     }
 
+    buffer = malloc(entry->size);
+    if (buffer == NULL) {
+        return ANI_ERROR_MEMORY;
+    }
+
+    /* Extract file from PVF */
+    result = PackSet_ExtractFile(pvf, entry, buffer, entry->size);
+    if (result != PVF_SUCCESS) {
+        free(buffer);
+        return ANI_ERROR_PVF;
+    }
+
     /* Parse ANI data */
-    result = ANI_LoadFromMemory(buffer, size, out_def);
+    result = ANI_LoadFromMemory(buffer, entry->size, out_def);
 
     /* Free PVF buffer */
     free(buffer);
@@ -852,81 +1225,6 @@ bool ANI_CanCancel(ANIInstance* inst)
     }
 
     return frame->can_cancel;
-}
-
-/* ========================================================================== */
-/* Resource Manager Integration                                                */
-/* ========================================================================== */
-
-Animation* ANI_CreateClientAnimation(ResourceManager* res_mgr,
-                                     ANIInstance* inst)
-{
-    Animation* anim;
-    ANIAction* action;
-    int* frames;
-    float avg_frame_time;
-    int i;
-
-    if (res_mgr == NULL || inst == NULL || inst->current_action == NULL) {
-        return NULL;
-    }
-
-    action = inst->current_action;
-    if (action->frame_count == 0) {
-        return NULL;
-    }
-
-    /* Allocate frame indices */
-    frames = (int*)malloc(action->frame_count * sizeof(int));
-    if (frames == NULL) {
-        return NULL;
-    }
-
-    /* Fill frame indices (using IMG indices) */
-    for (i = 0; i < action->frame_count; i++) {
-        frames[i] = action->frames[i].img_index;
-    }
-
-    /* Calculate average frame time */
-    avg_frame_time = (float)ANI_GetDuration(action) / action->frame_count / 1000.0f;
-
-    /* Create client Animation */
-    /* Note: This requires the sprite to be loaded separately via ResourceManager */
-    anim = (Animation*)calloc(1, sizeof(Animation));
-    if (anim == NULL) {
-        free(frames);
-        return NULL;
-    }
-
-    anim->sprite = NULL; /* Sprite loaded separately */
-    anim->frames = frames;
-    anim->frame_count = action->frame_count;
-    anim->frame_time = avg_frame_time;
-    anim->timer = 0.0f;
-    anim->current = 0;
-    anim->loop = action->loop;
-    anim->finished = false;
-
-    return anim;
-}
-
-Animation* ANI_LoadAnimation(ResourceManager* res_mgr,
-                            const char* ani_path,
-                            const char* action_name)
-{
-    ANIDefinition* def = NULL;
-    ANIInstance* inst = NULL;
-    Animation* anim = NULL;
-    int result;
-
-    if (res_mgr == NULL || ani_path == NULL) {
-        return NULL;
-    }
-
-    /* Load through resource manager */
-    anim = ResourceManager_LoadAnimation(res_mgr, ani_path);
-
-    return anim;
 }
 
 /* ========================================================================== */

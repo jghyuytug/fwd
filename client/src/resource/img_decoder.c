@@ -36,10 +36,12 @@
 #include <stdio.h>
 #include <zlib.h>
 
+#ifndef IMG_NO_SDL
 #ifdef _WIN32
 #include <SDL.h>
 #else
 #include <SDL2/SDL.h>
+#endif
 #endif
 
 /* ========================================================================== */
@@ -134,8 +136,382 @@ static void convert_argb8888_to_rgba(const uint32_t* src, uint32_t* dst,
 }
 
 /* ========================================================================== */
+/* DDS/DXT Decoding Implementation                                             */
+/* ========================================================================== */
+
+/* Decode RGB565 color to R, G, B components */
+static void decode_rgb565(uint16_t c, uint8_t* r, uint8_t* g, uint8_t* b)
+{
+    *r = (uint8_t)(((c >> 11) & 0x1F) * 255 / 31);
+    *g = (uint8_t)(((c >> 5) & 0x3F) * 255 / 63);
+    *b = (uint8_t)((c & 0x1F) * 255 / 31);
+}
+
+/* Decode a single DXT1 4x4 block */
+static void decode_dxt1_block(const uint8_t* block, uint32_t* out, int stride)
+{
+    uint16_t c0 = block[0] | (block[1] << 8);
+    uint16_t c1 = block[2] | (block[3] << 8);
+    uint32_t bits = block[4] | (block[5] << 8) | (block[6] << 16) | (block[7] << 24);
+
+    uint8_t r0, g0, b0, r1, g1, b1;
+    decode_rgb565(c0, &r0, &g0, &b0);
+    decode_rgb565(c1, &r1, &g1, &b1);
+
+    uint8_t colors[4][4]; /* [index][RGBA] */
+    colors[0][0] = r0; colors[0][1] = g0; colors[0][2] = b0; colors[0][3] = 255;
+    colors[1][0] = r1; colors[1][1] = g1; colors[1][2] = b1; colors[1][3] = 255;
+
+    if (c0 > c1) {
+        /* 4-color block */
+        colors[2][0] = (2 * r0 + r1) / 3;
+        colors[2][1] = (2 * g0 + g1) / 3;
+        colors[2][2] = (2 * b0 + b1) / 3;
+        colors[2][3] = 255;
+        colors[3][0] = (r0 + 2 * r1) / 3;
+        colors[3][1] = (g0 + 2 * g1) / 3;
+        colors[3][2] = (b0 + 2 * b1) / 3;
+        colors[3][3] = 255;
+    } else {
+        /* 3-color block + transparent */
+        colors[2][0] = (r0 + r1) / 2;
+        colors[2][1] = (g0 + g1) / 2;
+        colors[2][2] = (b0 + b1) / 2;
+        colors[2][3] = 255;
+        colors[3][0] = 0;
+        colors[3][1] = 0;
+        colors[3][2] = 0;
+        colors[3][3] = 0; /* Transparent */
+    }
+
+    for (int y = 0; y < 4; y++) {
+        for (int x = 0; x < 4; x++) {
+            int idx = (bits >> (2 * (y * 4 + x))) & 0x03;
+            out[y * stride + x] = (colors[idx][0] << 24) |
+                                  (colors[idx][1] << 16) |
+                                  (colors[idx][2] << 8) |
+                                  colors[idx][3];
+        }
+    }
+}
+
+/* Decode a single DXT3 4x4 block (explicit alpha) */
+static void decode_dxt3_block(const uint8_t* block, uint32_t* out, int stride)
+{
+    /* First 8 bytes: explicit alpha (4 bits per pixel) */
+    const uint8_t* alpha_block = block;
+    /* Next 8 bytes: DXT1 color block */
+    const uint8_t* color_block = block + 8;
+
+    uint16_t c0 = color_block[0] | (color_block[1] << 8);
+    uint16_t c1 = color_block[2] | (color_block[3] << 8);
+    uint32_t bits = color_block[4] | (color_block[5] << 8) |
+                    (color_block[6] << 16) | (color_block[7] << 24);
+
+    uint8_t r0, g0, b0, r1, g1, b1;
+    decode_rgb565(c0, &r0, &g0, &b0);
+    decode_rgb565(c1, &r1, &g1, &b1);
+
+    uint8_t colors[4][3];
+    colors[0][0] = r0; colors[0][1] = g0; colors[0][2] = b0;
+    colors[1][0] = r1; colors[1][1] = g1; colors[1][2] = b1;
+    colors[2][0] = (2 * r0 + r1) / 3;
+    colors[2][1] = (2 * g0 + g1) / 3;
+    colors[2][2] = (2 * b0 + b1) / 3;
+    colors[3][0] = (r0 + 2 * r1) / 3;
+    colors[3][1] = (g0 + 2 * g1) / 3;
+    colors[3][2] = (b0 + 2 * b1) / 3;
+
+    for (int y = 0; y < 4; y++) {
+        uint16_t alpha_row = alpha_block[y * 2] | (alpha_block[y * 2 + 1] << 8);
+        for (int x = 0; x < 4; x++) {
+            int idx = (bits >> (2 * (y * 4 + x))) & 0x03;
+            uint8_t a = ((alpha_row >> (x * 4)) & 0x0F) * 17; /* Scale 0-15 to 0-255 */
+            out[y * stride + x] = (colors[idx][0] << 24) |
+                                  (colors[idx][1] << 16) |
+                                  (colors[idx][2] << 8) |
+                                  a;
+        }
+    }
+}
+
+/* Decode a single DXT5 4x4 block (interpolated alpha) */
+static void decode_dxt5_block(const uint8_t* block, uint32_t* out, int stride)
+{
+    /* First 8 bytes: interpolated alpha */
+    uint8_t a0 = block[0];
+    uint8_t a1 = block[1];
+    uint64_t alpha_bits = 0;
+    for (int i = 0; i < 6; i++) {
+        alpha_bits |= ((uint64_t)block[2 + i]) << (8 * i);
+    }
+
+    uint8_t alphas[8];
+    alphas[0] = a0;
+    alphas[1] = a1;
+    if (a0 > a1) {
+        alphas[2] = (6 * a0 + 1 * a1) / 7;
+        alphas[3] = (5 * a0 + 2 * a1) / 7;
+        alphas[4] = (4 * a0 + 3 * a1) / 7;
+        alphas[5] = (3 * a0 + 4 * a1) / 7;
+        alphas[6] = (2 * a0 + 5 * a1) / 7;
+        alphas[7] = (1 * a0 + 6 * a1) / 7;
+    } else {
+        alphas[2] = (4 * a0 + 1 * a1) / 5;
+        alphas[3] = (3 * a0 + 2 * a1) / 5;
+        alphas[4] = (2 * a0 + 3 * a1) / 5;
+        alphas[5] = (1 * a0 + 4 * a1) / 5;
+        alphas[6] = 0;
+        alphas[7] = 255;
+    }
+
+    /* Next 8 bytes: DXT1 color block */
+    const uint8_t* color_block = block + 8;
+    uint16_t c0 = color_block[0] | (color_block[1] << 8);
+    uint16_t c1 = color_block[2] | (color_block[3] << 8);
+    uint32_t bits = color_block[4] | (color_block[5] << 8) |
+                    (color_block[6] << 16) | (color_block[7] << 24);
+
+    uint8_t r0, g0, b0, r1, g1, b1;
+    decode_rgb565(c0, &r0, &g0, &b0);
+    decode_rgb565(c1, &r1, &g1, &b1);
+
+    uint8_t colors[4][3];
+    colors[0][0] = r0; colors[0][1] = g0; colors[0][2] = b0;
+    colors[1][0] = r1; colors[1][1] = g1; colors[1][2] = b1;
+    colors[2][0] = (2 * r0 + r1) / 3;
+    colors[2][1] = (2 * g0 + g1) / 3;
+    colors[2][2] = (2 * b0 + b1) / 3;
+    colors[3][0] = (r0 + 2 * r1) / 3;
+    colors[3][1] = (g0 + 2 * g1) / 3;
+    colors[3][2] = (b0 + 2 * b1) / 3;
+
+    for (int y = 0; y < 4; y++) {
+        for (int x = 0; x < 4; x++) {
+            int pixel_idx = y * 4 + x;
+            int color_idx = (bits >> (2 * pixel_idx)) & 0x03;
+            int alpha_idx = (alpha_bits >> (3 * pixel_idx)) & 0x07;
+            out[y * stride + x] = (colors[color_idx][0] << 24) |
+                                  (colors[color_idx][1] << 16) |
+                                  (colors[color_idx][2] << 8) |
+                                  alphas[alpha_idx];
+        }
+    }
+}
+
+/* Decode DXT1 compressed image */
+static void decode_dxt1(const uint8_t* src, uint32_t* dst, int width, int height)
+{
+    int blocks_x = (width + 3) / 4;
+    int blocks_y = (height + 3) / 4;
+
+    for (int by = 0; by < blocks_y; by++) {
+        for (int bx = 0; bx < blocks_x; bx++) {
+            uint32_t block_pixels[16];
+            decode_dxt1_block(src, block_pixels, 4);
+            src += 8;
+
+            /* Copy block to destination */
+            for (int y = 0; y < 4 && (by * 4 + y) < height; y++) {
+                for (int x = 0; x < 4 && (bx * 4 + x) < width; x++) {
+                    dst[(by * 4 + y) * width + (bx * 4 + x)] = block_pixels[y * 4 + x];
+                }
+            }
+        }
+    }
+}
+
+/* Decode DXT3 compressed image */
+static void decode_dxt3(const uint8_t* src, uint32_t* dst, int width, int height)
+{
+    int blocks_x = (width + 3) / 4;
+    int blocks_y = (height + 3) / 4;
+
+    for (int by = 0; by < blocks_y; by++) {
+        for (int bx = 0; bx < blocks_x; bx++) {
+            uint32_t block_pixels[16];
+            decode_dxt3_block(src, block_pixels, 4);
+            src += 16;
+
+            for (int y = 0; y < 4 && (by * 4 + y) < height; y++) {
+                for (int x = 0; x < 4 && (bx * 4 + x) < width; x++) {
+                    dst[(by * 4 + y) * width + (bx * 4 + x)] = block_pixels[y * 4 + x];
+                }
+            }
+        }
+    }
+}
+
+/* Decode DXT5 compressed image */
+static void decode_dxt5(const uint8_t* src, uint32_t* dst, int width, int height)
+{
+    int blocks_x = (width + 3) / 4;
+    int blocks_y = (height + 3) / 4;
+
+    for (int by = 0; by < blocks_y; by++) {
+        for (int bx = 0; bx < blocks_x; bx++) {
+            uint32_t block_pixels[16];
+            decode_dxt5_block(src, block_pixels, 4);
+            src += 16;
+
+            for (int y = 0; y < 4 && (by * 4 + y) < height; y++) {
+                for (int x = 0; x < 4 && (bx * 4 + x) < width; x++) {
+                    dst[(by * 4 + y) * width + (bx * 4 + x)] = block_pixels[y * 4 + x];
+                }
+            }
+        }
+    }
+}
+
+/* ========================================================================== */
 /* Parsing Implementation                                                      */
 /* ========================================================================== */
+
+static int parse_frames_interleaved(const uint8_t* base, const uint8_t* end, IMGFile* img)
+{
+    const uint8_t* p = base + IMG_HEADER_SIZE;
+
+    img->max_width = 0;
+    img->max_height = 0;
+
+    for (uint32_t i = 0; i < img->frame_count; i++) {
+        IMGFrame* frame = &img->frames[i];
+        frame->link_index = -1;
+
+        if (p + IMG_ENTRY_SIZE > end) {
+            return IMG_ERROR_INVALID_MAGIC;
+        }
+
+        frame->color_format = read_u32(&p);
+        frame->compress = read_u32(&p);
+        frame->width = read_i32(&p);
+        frame->height = read_i32(&p);
+        frame->data_size = read_u32(&p);
+        frame->offset_x = read_i32(&p);
+        frame->offset_y = read_i32(&p);
+        frame->max_width = read_i32(&p);
+        frame->max_height = read_i32(&p);
+
+        if (frame->color_format == 0 && frame->compress == 0 &&
+            frame->width == 0 && frame->height == 0) {
+            frame->is_link = true;
+            frame->link_index = (int)frame->data_size;
+            frame->data_size = 0;
+        } else {
+            frame->is_link = false;
+        }
+
+        frame->data_offset = (uint32_t)(p - base);
+
+        switch (frame->color_format) {
+            case IMG_COLOR_INDEX8:
+                frame->raw_size = frame->width * frame->height;
+                break;
+            case IMG_COLOR_ARGB1555:
+            case IMG_COLOR_ARGB4444:
+                frame->raw_size = frame->width * frame->height * 2;
+                break;
+            case IMG_COLOR_ARGB8888:
+                frame->raw_size = frame->width * frame->height * 4;
+                break;
+            default:
+                frame->raw_size = 0;
+                break;
+        }
+
+        if (!frame->is_link && frame->data_size > 0) {
+            if (p + frame->data_size > end) {
+                return IMG_ERROR_INVALID_MAGIC;
+            }
+            p += frame->data_size;
+        }
+
+        if (frame->width > img->max_width) {
+            img->max_width = frame->width;
+        }
+        if (frame->height > img->max_height) {
+            img->max_height = frame->height;
+        }
+    }
+
+    return IMG_SUCCESS;
+}
+
+static int parse_frames_index_table(const uint8_t* base, const uint8_t* end, IMGFile* img)
+{
+    const uint8_t* p = base + IMG_HEADER_SIZE;
+    const size_t size = (size_t)(end - base);
+
+    const size_t index_bytes = (size_t)img->frame_count * IMG_ENTRY_SIZE;
+    if ((size_t)(p - base) + index_bytes > size) {
+        return IMG_ERROR_INVALID_MAGIC;
+    }
+
+    img->max_width = 0;
+    img->max_height = 0;
+
+    for (uint32_t i = 0; i < img->frame_count; i++) {
+        IMGFrame* frame = &img->frames[i];
+        frame->link_index = -1;
+
+        frame->color_format = read_u32(&p);
+        frame->compress = read_u32(&p);
+        frame->width = read_i32(&p);
+        frame->height = read_i32(&p);
+        frame->data_size = read_u32(&p);
+        frame->offset_x = read_i32(&p);
+        frame->offset_y = read_i32(&p);
+        frame->max_width = read_i32(&p);
+        frame->max_height = read_i32(&p);
+
+        if (frame->color_format == 0 && frame->compress == 0 &&
+            frame->width == 0 && frame->height == 0) {
+            frame->is_link = true;
+            frame->link_index = (int)frame->data_size;
+            frame->data_size = 0;
+        } else {
+            frame->is_link = false;
+        }
+
+        switch (frame->color_format) {
+            case IMG_COLOR_INDEX8:
+                frame->raw_size = frame->width * frame->height;
+                break;
+            case IMG_COLOR_ARGB1555:
+            case IMG_COLOR_ARGB4444:
+                frame->raw_size = frame->width * frame->height * 2;
+                break;
+            case IMG_COLOR_ARGB8888:
+                frame->raw_size = frame->width * frame->height * 4;
+                break;
+            default:
+                frame->raw_size = 0;
+                break;
+        }
+
+        if (frame->width > img->max_width) {
+            img->max_width = frame->width;
+        }
+        if (frame->height > img->max_height) {
+            img->max_height = frame->height;
+        }
+    }
+
+    size_t data_pos = IMG_HEADER_SIZE + index_bytes;
+    for (uint32_t i = 0; i < img->frame_count; i++) {
+        IMGFrame* frame = &img->frames[i];
+        frame->data_offset = (uint32_t)data_pos;
+
+        if (!frame->is_link && frame->data_size > 0) {
+            if (data_pos + frame->data_size > size) {
+                return IMG_ERROR_INVALID_MAGIC;
+            }
+            data_pos += frame->data_size;
+        }
+    }
+
+    return IMG_SUCCESS;
+}
 
 int IMG_Parse(const void* data, size_t size, IMGFile* img)
 {
@@ -186,77 +562,16 @@ int IMG_Parse(const void* data, size_t size, IMGFile* img)
     /* Entry (36 bytes) followed by Data (size)   */
     /* ========================================== */
 
-    /* Frame data starts at offset 32 */
-    p = base + IMG_HEADER_SIZE;
-
-    for (uint32_t i = 0; i < img->frame_count; i++) {
-        IMGFrame* frame = &img->frames[i];
-        frame->link_index = -1;
-
-        /* Check bounds for entry */
-        if (p + IMG_ENTRY_SIZE > end) {
+    /* Some datasets use an interleaved layout (entry->data->entry->data...),
+     * others store a full index table then pack all frame data afterwards.
+     * Try interleaved first; if it doesn't fit, fall back to the table layout. */
+    int pr = parse_frames_interleaved(base, end, img);
+    if (pr != IMG_SUCCESS) {
+        memset(img->frames, 0, img->frame_count * sizeof(IMGFrame));
+        pr = parse_frames_index_table(base, end, img);
+        if (pr != IMG_SUCCESS) {
             IMG_Free(img);
-            return IMG_ERROR_INVALID_MAGIC;
-        }
-
-        /* Read entry (36 bytes) */
-        frame->color_format = read_u32(&p);
-        frame->compress = read_u32(&p);
-        frame->width = read_i32(&p);
-        frame->height = read_i32(&p);
-        frame->data_size = read_u32(&p);
-        frame->offset_x = read_i32(&p);
-        frame->offset_y = read_i32(&p);
-        frame->max_width = read_i32(&p);
-        frame->max_height = read_i32(&p);
-
-        /* Check for link frame (format=0, compress=0, size points to target) */
-        if (frame->color_format == 0 && frame->compress == 0 &&
-            frame->width == 0 && frame->height == 0) {
-            /* Link frame - data_size contains target frame index */
-            frame->is_link = true;
-            frame->link_index = (int)frame->data_size;
-            frame->data_size = 0;
-        } else {
-            frame->is_link = false;
-        }
-
-        /* Record data offset (ABSOLUTE position in IMG data) */
-        /* Data immediately follows this entry */
-        frame->data_offset = (uint32_t)(p - base);
-
-        /* Calculate raw (decompressed) size based on color format */
-        switch (frame->color_format) {
-            case IMG_COLOR_INDEX8:
-                frame->raw_size = frame->width * frame->height;
-                break;
-            case IMG_COLOR_ARGB1555:
-            case IMG_COLOR_ARGB4444:
-                frame->raw_size = frame->width * frame->height * 2;
-                break;
-            case IMG_COLOR_ARGB8888:
-                frame->raw_size = frame->width * frame->height * 4;
-                break;
-            default:
-                frame->raw_size = 0;
-                break;
-        }
-
-        /* Advance past the data to next entry (INTERLEAVED) */
-        if (!frame->is_link && frame->data_size > 0) {
-            if (p + frame->data_size > end) {
-                /* Data extends beyond file - truncate */
-                frame->data_size = (uint32_t)(end - p);
-            }
-            p += frame->data_size;
-        }
-
-        /* Track max dimensions */
-        if (frame->width > img->max_width) {
-            img->max_width = frame->width;
-        }
-        if (frame->height > img->max_height) {
-            img->max_height = frame->height;
+            return pr;
         }
     }
 
@@ -413,6 +728,45 @@ int IMG_DecodeFrame(IMGFile* img, uint32_t index, IMGPixels* pixels)
                     }
                     break;
 
+                case IMG_COLOR_DDS_DXT1:
+                    {
+                        /* DXT1: 8 bytes per 4x4 block */
+                        int blocks_x = (frame->width + 3) / 4;
+                        int blocks_y = (frame->height + 3) / 4;
+                        size_t expected_size = (size_t)(blocks_x * blocks_y * 8);
+                        if (pixel_data_size >= expected_size) {
+                            decode_dxt1(pixel_data, pixels->data,
+                                       frame->width, frame->height);
+                        }
+                    }
+                    break;
+
+                case IMG_COLOR_DDS_DXT3:
+                    {
+                        /* DXT3: 16 bytes per 4x4 block */
+                        int blocks_x = (frame->width + 3) / 4;
+                        int blocks_y = (frame->height + 3) / 4;
+                        size_t expected_size = (size_t)(blocks_x * blocks_y * 16);
+                        if (pixel_data_size >= expected_size) {
+                            decode_dxt3(pixel_data, pixels->data,
+                                       frame->width, frame->height);
+                        }
+                    }
+                    break;
+
+                case IMG_COLOR_DDS_DXT5:
+                    {
+                        /* DXT5: 16 bytes per 4x4 block */
+                        int blocks_x = (frame->width + 3) / 4;
+                        int blocks_y = (frame->height + 3) / 4;
+                        size_t expected_size = (size_t)(blocks_x * blocks_y * 16);
+                        if (pixel_data_size >= expected_size) {
+                            decode_dxt5(pixel_data, pixels->data,
+                                       frame->width, frame->height);
+                        }
+                    }
+                    break;
+
                 default:
                     /* Unknown format - create gray pattern */
                     for (int i = 0; i < frame->width * frame->height; i++) {
@@ -456,6 +810,7 @@ void IMG_FreePixels(IMGPixels* pixels)
     memset(pixels, 0, sizeof(IMGPixels));
 }
 
+#ifndef IMG_NO_SDL
 SDL_Surface* IMG_DecodeToSurface(IMGFile* img, uint32_t index)
 {
     IMGPixels pixels;
@@ -598,6 +953,34 @@ void IMG_FreeSpriteSheet(IMGSpriteSheet* sheet)
 
     free(sheet);
 }
+#else
+SDL_Surface* IMG_DecodeToSurface(IMGFile* img, uint32_t index)
+{
+    (void)img;
+    (void)index;
+    return NULL;
+}
+
+SDL_Texture* IMG_CreateTexture(SDL_Renderer* renderer, IMGFile* img, uint32_t index)
+{
+    (void)renderer;
+    (void)img;
+    (void)index;
+    return NULL;
+}
+
+IMGSpriteSheet* IMG_CreateSpriteSheet(SDL_Renderer* renderer, IMGFile* img)
+{
+    (void)renderer;
+    (void)img;
+    return NULL;
+}
+
+void IMG_FreeSpriteSheet(IMGSpriteSheet* sheet)
+{
+    (void)sheet;
+}
+#endif
 
 /* ========================================================================== */
 /* Utility Functions                                                           */

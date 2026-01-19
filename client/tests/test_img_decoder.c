@@ -18,11 +18,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-/* Mock SDL types since we're not linking SDL */
-typedef void SDL_Renderer;
-typedef void SDL_Texture;
-typedef void SDL_Surface;
-
 #include "resource/npk_parser.h"
 #include "resource/img_decoder.h"
 

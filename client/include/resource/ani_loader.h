@@ -25,14 +25,6 @@ extern "C" {
 #include <stddef.h>
 #include <stdbool.h>
 
-/* Forward declarations */
-struct SDL_Renderer;
-struct Animation;
-struct ResourceManager;
-typedef struct SDL_Renderer SDL_Renderer;
-typedef struct Animation Animation;
-typedef struct ResourceManager ResourceManager;
-
 /* Forward from PVF library */
 struct PackSetInternal;
 typedef struct PackSetInternal PackSetInternal;
@@ -530,39 +522,6 @@ int ANI_GetHitboxes(ANIInstance* inst, ANIHitbox* out_boxes, int max_boxes);
  * @return true if cancellable
  */
 bool ANI_CanCancel(ANIInstance* inst);
-
-/* ========================================================================== */
-/* Resource Manager Integration                                                */
-/* ========================================================================== */
-
-/**
- * @brief Create client Animation from ANI instance
- *
- * Creates a client-side Animation structure linked to the ANI data.
- *
- * @param res_mgr       Resource manager
- * @param inst          ANI instance
- *
- * @return Animation* or NULL on error
- */
-Animation* ANI_CreateClientAnimation(ResourceManager* res_mgr,
-                                     ANIInstance* inst);
-
-/**
- * @brief Load complete animation from PVF
- *
- * High-level function that loads ANI definition, creates instance,
- * and returns client Animation.
- *
- * @param res_mgr       Resource manager
- * @param ani_path      ANI path in PVF
- * @param action_name   Initial action (NULL for default)
- *
- * @return Animation* or NULL on error
- */
-Animation* ANI_LoadAnimation(ResourceManager* res_mgr,
-                            const char* ani_path,
-                            const char* action_name);
 
 /* ========================================================================== */
 /* Utility Functions                                                           */
